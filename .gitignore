@@ -1,0 +1,40 @@
+# System Files
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.project
+.idea/
+.vscode/
+
+# Python backend
+literary_life_backend/.env
+literary_life_backend/.venv/
+literary_life_backend/.pytest_cache/
+literary_life_backend/__pycache__/
+literary_life_backend/app/__pycache__/
+literary_life_backend/literary_life.db
+literary_life_backend/alembic/__pycache__/
+
+# Flutter frontend
+literary_life_app/.dart_tool/
+literary_life_app/build/
+literary_life_app/.flutter-plugins
+literary_life_app/.flutter-plugins-dependencies
+literary_life_app/.metadata
+literary_life_app/.packages
+literary_life_app/pubspec.lock
+literary_life_app/ios/Pods/
+literary_life_app/ios/.symlinks/
+literary_life_app/ios/Flutter/Generated.xcconfig
+literary_life_app/ios/Flutter/flutter_export_environment.sh
+literary_life_app/android/.gradle/
+literary_life_app/android/local.properties
+literary_life_app/android/key.properties
+literary_life_app/windows/flutter/ephemeral/
+literary_life_app/linux/flutter/ephemeral/
+literary_life_app/macos/Flutter/ephemeral/
+
+# Docker
+.docker/
+docker-compose.override.yml

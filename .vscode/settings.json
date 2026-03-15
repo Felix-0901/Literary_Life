@@ -1,0 +1,10 @@
+{
+    "python.analysis.extraPaths": [
+        "./literary_life_backend"
+    ],
+    "python.defaultInterpreterPath": "./literary_life_backend/.venv/bin/python",
+    "dart.flutterSdkPath": "",
+    "editor.codeActionsOnSave": {
+        "source.fixAll": "explicit"
+    }
+}
