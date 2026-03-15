@@ -73,6 +73,8 @@ app = FastAPI(
     description="讓文學貼近生活的數位創作平台",
     version="1.0.0",
     lifespan=lifespan,
+    docs_url=None if settings.is_production else "/docs",
+    redoc_url=None if settings.is_production else "/redoc",
 )
 
 # CORS
