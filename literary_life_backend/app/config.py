@@ -10,7 +10,8 @@ class Settings(BaseSettings):
     # Database
     DATABASE_URL: str = "postgresql+psycopg://literary_life:literary_life_dev@db:5432/literary_life"
     BACKEND_CORS_ORIGINS: str = (
-        "http://localhost:3000,http://127.0.0.1:3000"
+        "http://localhost:3000,http://127.0.0.1:3000,"
+        "https://literaryweb.beioverworked.com"
     )
 
     # JWT
