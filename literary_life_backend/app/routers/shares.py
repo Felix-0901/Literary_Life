@@ -180,16 +180,16 @@ def get_shared_feed(
     ]
 
     filters = (
-        (LiteraryWork.is_published == True) & (
-            (WorkShare.target_type == "public")
-            | (
-                (WorkShare.target_type == "friend")
-                & (WorkShare.target_id == current_user.id)
-            )
-            | (
-                (WorkShare.target_type == "group")
-                & (WorkShare.target_id.in_(group_ids) if group_ids else False)
-            )
+        (
+            (LiteraryWork.is_published == True) & (WorkShare.target_type == "public")
+        )
+        | (
+            (WorkShare.target_type == "friend")
+            & (WorkShare.target_id == current_user.id)
+        )
+        | (
+            (WorkShare.target_type == "group")
+            & (WorkShare.target_id.in_(group_ids) if group_ids else False)
         )
     )
 

@@ -165,14 +165,13 @@ def get_group_works(
     if not is_member:
         raise HTTPException(status_code=403, detail="您不是此群組的成員")
 
-    # Find works shared to this group that are still published
+    # Find works shared to this group
     shares = (
         db.query(WorkShare)
         .join(LiteraryWork, LiteraryWork.id == WorkShare.work_id)
         .filter(
             WorkShare.target_type == "group",
             WorkShare.target_id == group_id,
-            LiteraryWork.is_published == True,
         )
         .all()
     )
