@@ -21,6 +21,20 @@ jobs:
 
   backend:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: literary_life
+          POSTGRES_PASSWORD: literary_life
+          POSTGRES_DB: literary_life
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U literary_life -d literary_life"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: literary_life_backend
@@ -31,5 +45,5 @@ jobs:
           python-version: "3.12"
       - run: python -m venv .venv
       - run: .venv/bin/pip install -r requirements-dev.txt
-      - run: DATABASE_URL=sqlite:///./ci.db .venv/bin/alembic upgrade head
-      - run: .venv/bin/pytest
+      - run: DATABASE_URL=postgresql+psycopg://literary_life:literary_life@localhost:5432/literary_life .venv/bin/alembic upgrade head
+      - run: DATABASE_URL=postgresql+psycopg://literary_life:literary_life@localhost:5432/literary_life .venv/bin/pytest

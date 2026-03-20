@@ -15,9 +15,9 @@ if str(ROOT) not in sys.path:
 
 TEST_DB_PATH = Path(tempfile.gettempdir()) / f"literary_life_test_{uuid.uuid4().hex}.db"
 
-os.environ["DATABASE_URL"] = f"sqlite:///{TEST_DB_PATH}"
-os.environ["SECRET_KEY"] = "test-secret-key"
-os.environ["AI_API_KEY"] = "test-ai-key"
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{TEST_DB_PATH}")
+os.environ.setdefault("SECRET_KEY", "test-secret-key")
+os.environ.setdefault("AI_API_KEY", "test-ai-key")
 
 from app.database import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
