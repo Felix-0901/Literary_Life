@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../config/theme.dart';
 import '../navigation/main_shell_controller.dart';
+import '../providers/auth_provider.dart';
 import '../providers/notification_provider.dart';
 import '../services/announcement_service.dart';
 import '../widgets/announcement_dialog.dart';
@@ -22,10 +23,12 @@ class MainShell extends StatefulWidget {
 
 class MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late final MainShellController _controller;
+  AuthProvider? _authProvider;
   NotificationProvider? _notificationProvider;
   final List<Widget?> _pageCache = List<Widget?>.filled(5, null);
   bool _hasShownAnnouncementInForeground = false;
   bool _isCheckingAnnouncement = false;
+  String _announcementUserKey = 'guest';
 
   static const List<Widget> _pageBuilders = [
     HomePage(),
@@ -42,6 +45,10 @@ class MainShellState extends State<MainShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      final auth = context.read<AuthProvider>();
+      _authProvider = auth;
+      _syncAnnouncementUserKey(auth);
+      auth.addListener(_onAuthChanged);
       final notifications = context.read<NotificationProvider>();
       _notificationProvider = notifications;
       notifications.fetchNotifications(silent: true);
@@ -53,8 +60,27 @@ class MainShellState extends State<MainShell> with WidgetsBindingObserver {
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    _authProvider?.removeListener(_onAuthChanged);
     _notificationProvider?.stopAutoRefresh();
     super.dispose();
+  }
+
+  void _onAuthChanged() {
+    if (!mounted) return;
+    final auth = _authProvider;
+    if (auth == null) return;
+    final changed = _syncAnnouncementUserKey(auth);
+    if (changed) {
+      _triggerAnnouncementCheck();
+    }
+  }
+
+  bool _syncAnnouncementUserKey(AuthProvider auth) {
+    final nextKey = auth.user?.id.toString() ?? 'guest';
+    if (nextKey == _announcementUserKey) return false;
+    _announcementUserKey = nextKey;
+    _hasShownAnnouncementInForeground = false;
+    return true;
   }
 
   @override
@@ -85,8 +111,9 @@ class MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
       final prefs = await SharedPreferences.getInstance();
       const legacyKey = 'dismissed_announcement_signature';
-      const dateKey = 'dismissed_announcement_date';
-      const signatureKey = 'dismissed_announcement_signature_v2';
+      final dateKey = 'dismissed_announcement_date:$_announcementUserKey';
+      final signatureKey =
+          'dismissed_announcement_signature_v2:$_announcementUserKey';
       final legacySignature = prefs.getString(legacyKey);
       final today = _todayKey(DateTime.now());
 
