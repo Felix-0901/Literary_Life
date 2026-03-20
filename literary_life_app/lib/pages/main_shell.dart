@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../config/theme.dart';
 import '../navigation/main_shell_controller.dart';
 import '../providers/notification_provider.dart';
+import '../services/announcement_service.dart';
+import '../widgets/announcement_dialog.dart';
 import 'home_page.dart';
 import 'inspiration_list_page.dart';
 import 'writing_editor_page.dart';
@@ -17,10 +20,12 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => MainShellState();
 }
 
-class MainShellState extends State<MainShell> {
+class MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late final MainShellController _controller;
   NotificationProvider? _notificationProvider;
   final List<Widget?> _pageCache = List<Widget?>.filled(5, null);
+  bool _hasShownAnnouncementInForeground = false;
+  bool _isCheckingAnnouncement = false;
 
   static const List<Widget> _pageBuilders = [
     HomePage(),
@@ -34,19 +39,93 @@ class MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _controller = MainShellController();
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final notifications = context.read<NotificationProvider>();
       _notificationProvider = notifications;
       notifications.fetchNotifications(silent: true);
       notifications.startAutoRefresh();
+      _triggerAnnouncementCheck();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _notificationProvider?.stopAutoRefresh();
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _triggerAnnouncementCheck();
+    } else if (state == AppLifecycleState.inactive ||
+        state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      _hasShownAnnouncementInForeground = false;
+    }
+  }
+
+  void _triggerAnnouncementCheck() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _showAnnouncementIfNeeded();
+    });
+  }
+
+  Future<void> _showAnnouncementIfNeeded() async {
+    if (_isCheckingAnnouncement) return;
+    if (_hasShownAnnouncementInForeground) return;
+    _isCheckingAnnouncement = true;
+    try {
+      final announcement = await AnnouncementService.fetchActiveAnnouncement();
+      if (!mounted || announcement == null) return;
+
+      final prefs = await SharedPreferences.getInstance();
+      const legacyKey = 'dismissed_announcement_signature';
+      const dateKey = 'dismissed_announcement_date';
+      const signatureKey = 'dismissed_announcement_signature_v2';
+      final legacySignature = prefs.getString(legacyKey);
+      final today = _todayKey(DateTime.now());
+
+      if (legacySignature != null) {
+        if (prefs.getString(dateKey) == null &&
+            prefs.getString(signatureKey) == null) {
+          await prefs.setString(dateKey, today);
+          await prefs.setString(signatureKey, legacySignature);
+        }
+        await prefs.remove(legacyKey);
+      }
+
+      final dismissedDate = prefs.getString(dateKey);
+      final dismissedSignature = prefs.getString(signatureKey);
+      if (dismissedDate == today && dismissedSignature == announcement.signature) {
+        return;
+      }
+
+      if (!mounted) return;
+      _hasShownAnnouncementInForeground = true;
+      final dontShowToday = await showDialog<bool>(
+        context: context,
+        barrierDismissible: true,
+        builder: (context) => AnnouncementDialog(announcement: announcement),
+      );
+      if (dontShowToday == true) {
+        await prefs.setString(dateKey, today);
+        await prefs.setString(signatureKey, announcement.signature);
+      }
+    } finally {
+      _isCheckingAnnouncement = false;
+    }
+  }
+
+  String _todayKey(DateTime now) {
+    final y = now.year.toString().padLeft(4, '0');
+    final m = now.month.toString().padLeft(2, '0');
+    final d = now.day.toString().padLeft(2, '0');
+    return '$y-$m-$d';
   }
 
   Widget _pageAt(int index) {
