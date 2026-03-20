@@ -21,12 +21,12 @@ class MainShell extends StatefulWidget {
   State<MainShell> createState() => MainShellState();
 }
 
-class MainShellState extends State<MainShell> with WidgetsBindingObserver {
+class MainShellState extends State<MainShell> {
   late final MainShellController _controller;
   AuthProvider? _authProvider;
   NotificationProvider? _notificationProvider;
   final List<Widget?> _pageCache = List<Widget?>.filled(5, null);
-  bool _hasShownAnnouncementInForeground = false;
+  bool _hasShownAnnouncementInSession = false;
   bool _isCheckingAnnouncement = false;
   String _announcementUserKey = 'guest';
 
@@ -42,7 +42,6 @@ class MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     _controller = MainShellController();
-    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       final auth = context.read<AuthProvider>();
@@ -59,7 +58,6 @@ class MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
     _authProvider?.removeListener(_onAuthChanged);
     _notificationProvider?.stopAutoRefresh();
     super.dispose();
@@ -79,19 +77,8 @@ class MainShellState extends State<MainShell> with WidgetsBindingObserver {
     final nextKey = auth.user?.id.toString() ?? 'guest';
     if (nextKey == _announcementUserKey) return false;
     _announcementUserKey = nextKey;
-    _hasShownAnnouncementInForeground = false;
+    _hasShownAnnouncementInSession = false;
     return true;
-  }
-
-  @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _triggerAnnouncementCheck();
-    } else if (state == AppLifecycleState.inactive ||
-        state == AppLifecycleState.paused ||
-        state == AppLifecycleState.detached) {
-      _hasShownAnnouncementInForeground = false;
-    }
   }
 
   void _triggerAnnouncementCheck() {
@@ -103,7 +90,7 @@ class MainShellState extends State<MainShell> with WidgetsBindingObserver {
 
   Future<void> _showAnnouncementIfNeeded() async {
     if (_isCheckingAnnouncement) return;
-    if (_hasShownAnnouncementInForeground) return;
+    if (_hasShownAnnouncementInSession) return;
     _isCheckingAnnouncement = true;
     try {
       final announcement = await AnnouncementService.fetchActiveAnnouncement();
@@ -133,7 +120,7 @@ class MainShellState extends State<MainShell> with WidgetsBindingObserver {
       }
 
       if (!mounted) return;
-      _hasShownAnnouncementInForeground = true;
+      _hasShownAnnouncementInSession = true;
       final dontShowToday = await showDialog<bool>(
         context: context,
         barrierDismissible: true,
