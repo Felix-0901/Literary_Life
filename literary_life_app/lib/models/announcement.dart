@@ -6,6 +6,7 @@ class Announcement {
   final DateTime? startsAt;
   final DateTime? endsAt;
   final DateTime? updatedAt;
+  final DateTime? createdAt;
 
   const Announcement({
     required this.id,
@@ -15,9 +16,10 @@ class Announcement {
     required this.startsAt,
     required this.endsAt,
     required this.updatedAt,
+    required this.createdAt,
   });
 
-  factory Announcement.fromDirectusJson(Map<String, dynamic> json) {
+  factory Announcement.fromJson(Map<String, dynamic> json) {
     return Announcement(
       id: json['id'] is int ? json['id'] as int : int.parse('${json['id']}'),
       title: (json['title'] ?? '').toString(),
@@ -25,7 +27,8 @@ class Announcement {
       isActive: json['is_active'] == true,
       startsAt: _parseDateTime(json['starts_at']),
       endsAt: _parseDateTime(json['ends_at']),
-      updatedAt: _parseDateTime(json['date_updated'] ?? json['date_created']),
+      updatedAt: _parseDateTime(json['updated_at']),
+      createdAt: _parseDateTime(json['created_at']),
     );
   }
 
@@ -38,8 +41,8 @@ class Announcement {
   }
 
   String get signature {
-    final stamp = updatedAt?.toUtc().toIso8601String() ?? '';
+    final stamp =
+        (updatedAt ?? createdAt)?.toUtc().toIso8601String() ?? '';
     return '$id@$stamp';
   }
 }
-

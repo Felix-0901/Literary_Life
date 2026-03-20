@@ -13,7 +13,7 @@ from app.models import *  # noqa: F401, F403 — import all models to register t
 from app.models.quote import Quote
 from app.routers import (
     auth, quotes, inspirations, cycles, works,
-    friends, groups, shares, responses, notifications, ai,
+    friends, groups, shares, responses, notifications, announcements, ai,
 )
 
 settings = get_settings()
@@ -89,6 +89,7 @@ app.add_middleware(
 # Register routers
 app.include_router(auth.router)
 app.include_router(quotes.router)
+app.include_router(announcements.router)
 app.include_router(inspirations.router)
 app.include_router(cycles.router)
 app.include_router(works.router)

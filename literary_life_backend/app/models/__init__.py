@@ -8,6 +8,7 @@ from app.models.group import Group, GroupMember
 from app.models.share import WorkShare
 from app.models.response import Response
 from app.models.notification import Notification
+from app.models.announcement import Announcement
 
 __all__ = [
     "User",
@@ -21,4 +22,5 @@ __all__ = [
     "WorkShare",
     "Response",
     "Notification",
+    "Announcement",
 ]
