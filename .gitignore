@@ -38,3 +38,7 @@ literary_life_app/macos/Flutter/ephemeral/
 # Docker
 .docker/
 docker-compose.override.yml
+
+# Local env
+.env
+.env.local
