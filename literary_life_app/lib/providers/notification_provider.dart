@@ -12,19 +12,26 @@ class NotificationProvider extends ChangeNotifier {
   bool _isLoading = false;
   String? _error;
   Timer? _pollingTimer;
+  bool _isDisposed = false;
 
   List<AppNotification> get notifications => _notifications;
   bool get isLoading => _isLoading;
   int get unreadCount => _notifications.where((n) => !n.isRead).length;
   String? get error => _error;
 
+  void _safeNotifyListeners() {
+    if (_isDisposed) return;
+    notifyListeners();
+  }
+
   Future<void> fetchNotifications({bool silent = false}) async {
+    if (_isDisposed) return;
     if (!silent) {
       _isLoading = true;
     }
     _error = null;
     if (!silent) {
-      notifyListeners();
+      _safeNotifyListeners();
     }
 
     try {
@@ -32,8 +39,9 @@ class NotificationProvider extends ChangeNotifier {
     } catch (error) {
       _error = error.toString();
     }
+    if (_isDisposed) return;
     _isLoading = false;
-    notifyListeners();
+    _safeNotifyListeners();
   }
 
   void startAutoRefresh({Duration interval = const Duration(seconds: 5)}) {
@@ -49,9 +57,11 @@ class NotificationProvider extends ChangeNotifier {
   }
 
   Future<void> markRead(int notificationId) async {
+    if (_isDisposed) return;
     try {
       _error = null;
       await _apiClient.markNotificationRead(notificationId);
+      if (_isDisposed) return;
       final idx = _notifications.indexWhere((n) => n.id == notificationId);
       if (idx >= 0) {
         _notifications[idx] = AppNotification(
@@ -63,18 +73,20 @@ class NotificationProvider extends ChangeNotifier {
           isRead: true,
           createdAt: _notifications[idx].createdAt,
         );
-        notifyListeners();
+        _safeNotifyListeners();
       }
     } catch (error) {
       _error = error.toString();
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
   Future<void> markAllRead() async {
+    if (_isDisposed) return;
     try {
       _error = null;
       await _apiClient.markAllNotificationsRead();
+      if (_isDisposed) return;
       _notifications = _notifications
           .map(
             (n) => AppNotification(
@@ -88,15 +100,16 @@ class NotificationProvider extends ChangeNotifier {
             ),
           )
           .toList();
-      notifyListeners();
+      _safeNotifyListeners();
     } catch (error) {
       _error = error.toString();
-      notifyListeners();
+      _safeNotifyListeners();
     }
   }
 
   @override
   void dispose() {
+    _isDisposed = true;
     _pollingTimer?.cancel();
     super.dispose();
   }
