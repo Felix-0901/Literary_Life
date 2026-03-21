@@ -9,6 +9,7 @@ from app.models.share import WorkShare
 from app.models.response import Response
 from app.models.notification import Notification
 from app.models.announcement import Announcement
+from app.models.maintenance import MaintenanceConfig
 
 __all__ = [
     "User",
@@ -23,4 +24,5 @@ __all__ = [
     "Response",
     "Notification",
     "Announcement",
+    "MaintenanceConfig",
 ]

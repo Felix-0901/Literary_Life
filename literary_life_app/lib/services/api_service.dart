@@ -9,6 +9,7 @@ import '../models/notification.dart';
 import '../models/response.dart';
 import '../models/share.dart';
 import '../models/work.dart';
+import 'maintenance_controller.dart';
 
 class ApiService {
   static const _storage = FlutterSecureStorage();
@@ -35,6 +36,35 @@ class ApiService {
       headers['Authorization'] = 'Bearer $_token';
     }
     return headers;
+  }
+
+  static Future<void> refreshMaintenanceStatus() async {
+    try {
+      final response = await http.get(
+        Uri.parse('${ApiConfig.maintenanceUrl}/active'),
+        headers: _headers(),
+      );
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        if (response.body.isEmpty) {
+          MaintenanceController.instance.deactivate();
+          return;
+        }
+        final data = jsonDecode(utf8.decode(response.bodyBytes));
+        if (data is Map<String, dynamic>) {
+          MaintenanceController.instance.updateFromJson(data);
+          return;
+        }
+        MaintenanceController.instance.deactivate();
+        return;
+      }
+
+      if (response.statusCode == 404) {
+        MaintenanceController.instance.deactivate();
+        return;
+      }
+    } catch (_) {
+    }
   }
 
   // ── Auth ──
@@ -351,6 +381,17 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       if (response.body.isEmpty) return {};
       return jsonDecode(utf8.decode(response.bodyBytes));
+    }
+    if (response.statusCode == 503) {
+      String message = '';
+      try {
+        final body = jsonDecode(utf8.decode(response.bodyBytes));
+        message = (body['message'] ?? body['detail'] ?? '') as String;
+        MaintenanceController.instance.activate(message: message);
+      } catch (_) {
+        MaintenanceController.instance.activate();
+      }
+      throw ApiException(response.statusCode, message.trim().isEmpty ? '服務維護中' : message);
     }
     if (response.statusCode == 401) {
       clearToken();

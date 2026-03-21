@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -14,11 +15,13 @@ import 'providers/work_provider.dart';
 import 'providers/friend_provider.dart';
 import 'providers/group_provider.dart';
 import 'providers/notification_provider.dart';
+import 'services/api_service.dart';
 import 'pages/splash_page.dart';
 import 'pages/login_page.dart';
 import 'pages/register_page.dart';
 import 'pages/main_shell.dart';
 import 'pages/settings_page.dart';
+import 'widgets/maintenance_overlay.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -82,7 +85,7 @@ void main() {
   runApp(const LiteraryLifeApp());
 }
 
-class LiteraryLifeApp extends StatelessWidget {
+class LiteraryLifeApp extends StatefulWidget {
   const LiteraryLifeApp({
     super.key,
     this.authProvider,
@@ -93,12 +96,59 @@ class LiteraryLifeApp extends StatelessWidget {
   final AppLaunchCoordinator launchCoordinator;
 
   @override
+  State<LiteraryLifeApp> createState() => _LiteraryLifeAppState();
+}
+
+class _LiteraryLifeAppState extends State<LiteraryLifeApp> with WidgetsBindingObserver {
+  Timer? _maintenanceTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    ApiService.refreshMaintenanceStatus();
+    _startMaintenanceTimer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ApiService.refreshMaintenanceStatus();
+      _startMaintenanceTimer();
+      return;
+    }
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
+      _stopMaintenanceTimer();
+    }
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _stopMaintenanceTimer();
+    super.dispose();
+  }
+
+  void _startMaintenanceTimer() {
+    _maintenanceTimer?.cancel();
+    _maintenanceTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => ApiService.refreshMaintenanceStatus(),
+    );
+  }
+
+  void _stopMaintenanceTimer() {
+    _maintenanceTimer?.cancel();
+    _maintenanceTimer = null;
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        Provider<AppLaunchCoordinator>.value(value: launchCoordinator),
-        if (authProvider != null)
-          ChangeNotifierProvider<AuthProvider>.value(value: authProvider!)
+        Provider<AppLaunchCoordinator>.value(value: widget.launchCoordinator),
+        if (widget.authProvider != null)
+          ChangeNotifierProvider<AuthProvider>.value(value: widget.authProvider!)
         else
           ChangeNotifierProvider(create: (_) => AuthProvider()),
         ChangeNotifierProvider(create: (_) => QuoteProvider()),
@@ -113,6 +163,14 @@ class LiteraryLifeApp extends StatelessWidget {
         title: '拾字日常',
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
+        builder: (context, child) {
+          return Stack(
+            children: [
+              child ?? const SizedBox.shrink(),
+              const MaintenanceOverlay(),
+            ],
+          );
+        },
         initialRoute: AppRoutes.splash,
         routes: {
           AppRoutes.splash: (context) => const SplashPage(),

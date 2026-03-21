@@ -4,17 +4,19 @@ import logging
 import time
 
 from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import inspect
 
 from app.config import get_settings
-from app.database import engine
+from app.database import engine, SessionLocal
 from app.models import *  # noqa: F401, F403 — import all models to register them
 from app.models.quote import Quote
 from app.routers import (
     auth, quotes, inspirations, cycles, works,
-    friends, groups, shares, responses, notifications, announcements, ai,
+    friends, groups, shares, responses, notifications, announcements, maintenance, ai,
 )
+from app.services.maintenance_service import get_active_maintenance
 
 settings = get_settings()
 logger = logging.getLogger("literary_life.api")
@@ -78,18 +80,31 @@ app = FastAPI(
 )
 
 # CORS
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=settings.cors_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+cors_kwargs = {
+    "allow_credentials": True,
+    "allow_methods": ["*"],
+    "allow_headers": ["*"],
+}
+
+if settings.is_production:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        **cors_kwargs,
+    )
+else:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
+        **cors_kwargs,
+    )
 
 # Register routers
 app.include_router(auth.router)
 app.include_router(quotes.router)
 app.include_router(announcements.router)
+app.include_router(maintenance.router)
 app.include_router(inspirations.router)
 app.include_router(cycles.router)
 app.include_router(works.router)
@@ -100,11 +115,48 @@ app.include_router(responses.router)
 app.include_router(notifications.router)
 app.include_router(ai.router)
 
+_maintenance_cache_expires_at = 0.0
+_maintenance_cache_value = None
+
+
+def _get_cached_active_maintenance():
+    global _maintenance_cache_expires_at, _maintenance_cache_value
+    now = time.monotonic()
+    if now < _maintenance_cache_expires_at:
+        return _maintenance_cache_value
+
+    db = SessionLocal()
+    try:
+        _maintenance_cache_value = get_active_maintenance(db)
+    finally:
+        db.close()
+
+    _maintenance_cache_expires_at = now + 2.0
+    return _maintenance_cache_value
+
+
+def _is_maintenance_allowlisted(path: str) -> bool:
+    if path in {"/", "/healthz", "/api/maintenance/active"}:
+        return True
+    if path in {"/openapi.json", "/docs", "/redoc"}:
+        return True
+    return False
+
 
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start = time.perf_counter()
-    response = await call_next(request)
+    if _is_maintenance_allowlisted(request.url.path):
+        response = await call_next(request)
+    else:
+        maintenance = _get_cached_active_maintenance()
+        if maintenance:
+            response = JSONResponse(
+                status_code=503,
+                content={"detail": "服務維護中", "message": maintenance.message},
+            )
+        else:
+            response = await call_next(request)
     duration_ms = round((time.perf_counter() - start) * 1000, 2)
     logger.info(
         json.dumps(

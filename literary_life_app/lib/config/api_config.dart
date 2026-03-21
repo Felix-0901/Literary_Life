@@ -40,5 +40,6 @@ class ApiConfig {
   static String get responsesUrl => '$baseUrl$apiPrefix/responses';
   static String get notificationsUrl => '$baseUrl$apiPrefix/notifications';
   static String get announcementsUrl => '$baseUrl$apiPrefix/announcements';
+  static String get maintenanceUrl => '$baseUrl$apiPrefix/maintenance';
   static String get aiUrl => '$baseUrl$apiPrefix/ai';
 }
