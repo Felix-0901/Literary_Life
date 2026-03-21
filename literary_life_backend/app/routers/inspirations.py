@@ -37,6 +37,10 @@ def create_inspiration(
 @router.get("/", response_model=List[InspirationResponse])
 def list_inspirations(
     cycle_id: Optional[int] = Query(None),
+    location: Optional[str] = Query(None),
+    feeling: Optional[str] = Query(None),
+    object_or_event: Optional[str] = Query(None),
+    keywords: Optional[str] = Query(None),
     keyword: Optional[str] = Query(None),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -46,11 +50,21 @@ def list_inspirations(
     query = db.query(InspirationLog).filter(InspirationLog.user_id == current_user.id)
     if cycle_id:
         query = query.filter(InspirationLog.cycle_id == cycle_id)
+    if location:
+        query = query.filter(InspirationLog.location.ilike(f"%{location}%"))
+    if feeling:
+        query = query.filter(InspirationLog.feeling.ilike(f"%{feeling}%"))
+    if object_or_event:
+        query = query.filter(InspirationLog.object_or_event.ilike(f"%{object_or_event}%"))
+    if keywords:
+        query = query.filter(InspirationLog.keywords.ilike(f"%{keywords}%"))
     if keyword:
         query = query.filter(
             InspirationLog.keywords.ilike(f"%{keyword}%")
             | InspirationLog.detail_text.ilike(f"%{keyword}%")
             | InspirationLog.object_or_event.ilike(f"%{keyword}%")
+            | InspirationLog.location.ilike(f"%{keyword}%")
+            | InspirationLog.feeling.ilike(f"%{keyword}%")
         )
     return query.order_by(InspirationLog.event_time.desc()).offset(skip).limit(limit).all()
 
