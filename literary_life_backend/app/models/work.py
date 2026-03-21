@@ -9,9 +9,11 @@ class LiteraryWork(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
     cycle_id = Column(Integer, ForeignKey("writing_cycles.id"), nullable=True, index=True)
+    completed_cycle_id = Column(Integer, ForeignKey("writing_cycles.id"), nullable=True, index=True)
     title = Column(String(200), nullable=False)
     genre = Column(String(50), default="散文")  # 散文, 新詩, 短札記, 微小說, 書信體
     content = Column(Text, nullable=False)
+    hashtags = Column(String(1000), default="", nullable=False)
     is_published = Column(Boolean, default=False)
     visibility = Column(String(20), default="private")  # private, friends, group, public
     created_at = Column(DateTime(timezone=True), server_default=func.now())
