@@ -286,6 +286,7 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
 
   @override
   Widget build(BuildContext context) {
+    final isPublished = widget.work?.isPublished ?? false;
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
@@ -304,56 +305,33 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
               ),
             )
           else
-            PopupMenuButton<String>(
-              tooltip: '更多選項',
-              padding: EdgeInsets.zero,
-              offset: const Offset(0, 40),
-              icon: null,
-              child: const Padding(
-                padding: EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(
-                  Icons.more_horiz_rounded,
-                  size: 20,
-                  color: AppTheme.textSecondary,
-                ),
+            IconButton(
+              tooltip: '儲存',
+              onPressed: _saveWork,
+              icon: const Icon(
+                Icons.save_rounded,
+                size: 20,
+                color: AppTheme.textSecondary,
               ),
-              onSelected: (value) {
-                if (value == 'save') {
-                  _saveWork();
-                } else if (value == 'publish') {
-                  _saveWork(publish: true);
-                } else if (value == 'unpublish') {
-                  _saveWork(unpublish: true);
-                }
-              },
-              itemBuilder: (BuildContext context) {
-                bool isPub = widget.work?.isPublished ?? false;
-                return [
-                  PopupMenuItem<String>(
-                    value: 'save',
-                    child: Text('儲存', style: GoogleFonts.notoSansTc()),
-                  ),
-                  if (isPub)
-                    PopupMenuItem<String>(
-                      value: 'unpublish',
-                      child: Text(
-                        '取消發布',
-                        style: GoogleFonts.notoSansTc(color: AppTheme.error),
-                      ),
-                    )
-                  else
-                    PopupMenuItem<String>(
-                      value: 'publish',
-                      child: Text(
-                        '發布',
-                        style: GoogleFonts.notoSansTc(color: AppTheme.accent),
-                      ),
-                    ),
-                ];
-              },
             ),
           const SizedBox(width: 8),
         ],
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.only(bottom: 72),
+        child: FloatingActionButton(
+          heroTag: 'writing_publish_fab',
+          onPressed:
+              _saving ? null : () => _saveWork(publish: !isPublished, unpublish: isPublished),
+          backgroundColor: isPublished ? AppTheme.error : AppTheme.accent,
+          shape: const CircleBorder(),
+          tooltip: isPublished ? '取消發布' : '發布',
+          child: Icon(
+            isPublished ? Icons.public_off_rounded : Icons.publish_rounded,
+            color: Colors.white,
+          ),
+        ),
       ),
       body: Column(
         children: [
