@@ -10,6 +10,7 @@ abstract class AppApiClient {
   Future<List<dynamic>> getList(String url);
   Future<Map<String, dynamic>> post(String url, {Map<String, dynamic>? body});
   Future<Map<String, dynamic>> put(String url, {Map<String, dynamic>? body});
+  Future<void> delete(String url);
   Future<Map<String, dynamic>> updateProfile({String? nickname, String? bio});
   Future<List<Group>> getGroups();
   Future<Group?> createGroup(String name, String description);
@@ -24,6 +25,9 @@ class DefaultAppApiClient implements AppApiClient {
 
   @override
   Future<void> clearToken() => ApiService.clearToken();
+
+  @override
+  Future<void> delete(String url) => ApiService.delete(url);
 
   @override
   Future<Map<String, dynamic>> get(String url) => ApiService.get(url);

@@ -12,16 +12,39 @@ class InspirationProvider extends ChangeNotifier {
   bool get isLoading => _isLoading;
   String? get error => _error;
 
-  Future<void> fetchInspirations({int? cycleId, String? keyword}) async {
+  Future<void> fetchInspirations({
+    int? cycleId,
+    String? location,
+    String? feeling,
+    String? objectOrEvent,
+    String? keywords,
+    String? keyword,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      String url = '${ApiConfig.inspirationsUrl}/';
-      final params = <String>[];
-      if (cycleId != null) params.add('cycle_id=$cycleId');
-      if (keyword != null && keyword.isNotEmpty) params.add('keyword=$keyword');
-      if (params.isNotEmpty) url += '?${params.join('&')}';
+      final base = Uri.parse('${ApiConfig.inspirationsUrl}/');
+      final queryParameters = <String, String>{};
+      if (cycleId != null) queryParameters['cycle_id'] = cycleId.toString();
+      if (location != null && location.trim().isNotEmpty) {
+        queryParameters['location'] = location.trim();
+      }
+      if (feeling != null && feeling.trim().isNotEmpty) {
+        queryParameters['feeling'] = feeling.trim();
+      }
+      if (objectOrEvent != null && objectOrEvent.trim().isNotEmpty) {
+        queryParameters['object_or_event'] = objectOrEvent.trim();
+      }
+      if (keywords != null && keywords.trim().isNotEmpty) {
+        queryParameters['keywords'] = keywords.trim();
+      }
+      if (keyword != null && keyword.trim().isNotEmpty) {
+        queryParameters['keyword'] = keyword.trim();
+      }
+      final url = queryParameters.isEmpty
+          ? base.toString()
+          : base.replace(queryParameters: queryParameters).toString();
 
       final data = await ApiService.getList(url);
       _inspirations = data.map((j) => Inspiration.fromJson(j)).toList();

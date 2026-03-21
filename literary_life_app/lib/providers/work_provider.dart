@@ -76,10 +76,13 @@ class WorkProvider extends ChangeNotifier {
 
   Future<LiteraryWork?> createWork({
     int? cycleId,
+    int? completedCycleId,
     required String title,
     required String genre,
     required String content,
     String visibility = 'private',
+    String hashtags = '',
+    List<int> inspirationIds = const [],
   }) async {
     try {
       _error = null;
@@ -87,10 +90,13 @@ class WorkProvider extends ChangeNotifier {
         '${ApiConfig.worksUrl}/',
         body: {
           if (cycleId != null) 'cycle_id': cycleId,
+          if (completedCycleId != null) 'completed_cycle_id': completedCycleId,
           'title': title,
           'genre': genre,
           'content': content,
           'visibility': visibility,
+          'hashtags': hashtags,
+          'inspiration_ids': inspirationIds,
         },
       );
       final work = LiteraryWork.fromJson(data);
@@ -110,6 +116,10 @@ class WorkProvider extends ChangeNotifier {
     String? content,
     String? genre,
     String? visibility,
+    int? completedCycleId,
+    bool setCompletedCycleId = false,
+    String? hashtags,
+    List<int>? inspirationIds,
   }) async {
     try {
       _error = null;
@@ -118,6 +128,9 @@ class WorkProvider extends ChangeNotifier {
       if (content != null) body['content'] = content;
       if (genre != null) body['genre'] = genre;
       if (visibility != null) body['visibility'] = visibility;
+      if (setCompletedCycleId) body['completed_cycle_id'] = completedCycleId;
+      if (hashtags != null) body['hashtags'] = hashtags;
+      if (inspirationIds != null) body['inspiration_ids'] = inspirationIds;
 
       final data = await _apiClient.put(
         '${ApiConfig.worksUrl}/$workId',
@@ -169,6 +182,21 @@ class WorkProvider extends ChangeNotifier {
       _error = error.toString();
       notifyListeners();
       return null;
+    }
+  }
+
+  Future<bool> deleteWork(int workId) async {
+    try {
+      _error = null;
+      await _apiClient.delete('${ApiConfig.worksUrl}/$workId');
+      _works.removeWhere((w) => w.id == workId);
+      _publicWorks.removeWhere((w) => w.id == workId);
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _error = error.toString();
+      notifyListeners();
+      return false;
     }
   }
 

@@ -16,6 +16,7 @@ class FakeAppApiClient implements AppApiClient {
     ListHandler? getListHandler,
     MapHandler? postHandler,
     MapHandler? putHandler,
+    Future<void> Function(String url)? deleteHandler,
     Future<List<Group>> Function()? groupsHandler,
     Future<Group?> Function(String name, String description)?
     createGroupHandler,
@@ -29,6 +30,7 @@ class FakeAppApiClient implements AppApiClient {
        _getListHandler = getListHandler,
        _postHandler = postHandler,
        _putHandler = putHandler,
+       _deleteHandler = deleteHandler,
        _groupsHandler = groupsHandler,
        _createGroupHandler = createGroupHandler,
        _joinGroupHandler = joinGroupHandler,
@@ -42,6 +44,7 @@ class FakeAppApiClient implements AppApiClient {
   final ListHandler? _getListHandler;
   final MapHandler? _postHandler;
   final MapHandler? _putHandler;
+  final Future<void> Function(String url)? _deleteHandler;
   final Future<List<Group>> Function()? _groupsHandler;
   final Future<Group?> Function(String name, String description)?
   _createGroupHandler;
@@ -124,6 +127,13 @@ class FakeAppApiClient implements AppApiClient {
   }) async {
     if (_putHandler == null) return <String, dynamic>{};
     return _putHandler(url, body: body);
+  }
+
+  @override
+  Future<void> delete(String url) async {
+    if (_deleteHandler != null) {
+      await _deleteHandler(url);
+    }
   }
 
   @override

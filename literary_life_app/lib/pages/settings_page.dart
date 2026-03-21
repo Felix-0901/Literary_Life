@@ -282,7 +282,7 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'v1.0.0',
+                      'v1.1.0',
                       style: GoogleFonts.notoSansTc(
                         fontSize: 12,
                         color: Colors.white70,
@@ -316,7 +316,7 @@ class SettingsPage extends StatelessWidget {
                     const SizedBox(height: 20),
                     const Divider(),
                     const SizedBox(height: 16),
-                    _aboutInfoItem(Icons.code_rounded, '開發版本', '1.0.0'),
+                    _aboutInfoItem(Icons.code_rounded, '開發版本', '1.1.0'),
                     _aboutInfoItem(Icons.copyright_rounded, '著作權', '© 2026 Literary Life'),
                     _aboutInfoItem(Icons.favorite_rounded, '團隊', '拾字日常開發小組'),
                   ],
@@ -343,7 +343,7 @@ class SettingsPage extends StatelessWidget {
     showLicensePage(
       context: context,
       applicationName: '拾字日常',
-      applicationVersion: '1.0.0',
+      applicationVersion: '1.1.0',
       applicationIcon: Padding(
         padding: const EdgeInsets.all(12),
         child: Icon(Icons.auto_stories_rounded, size: 48, color: AppTheme.primary),

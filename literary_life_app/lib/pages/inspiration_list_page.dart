@@ -14,6 +14,10 @@ class InspirationListPage extends StatefulWidget {
 
 class _InspirationListPageState extends State<InspirationListPage> {
   final _searchController = TextEditingController();
+  final _locationController = TextEditingController();
+  final _feelingController = TextEditingController();
+  final _objectOrEventController = TextEditingController();
+  final _keywordsController = TextEditingController();
 
   @override
   void initState() {
@@ -26,7 +30,149 @@ class _InspirationListPageState extends State<InspirationListPage> {
   @override
   void dispose() {
     _searchController.dispose();
+    _locationController.dispose();
+    _feelingController.dispose();
+    _objectOrEventController.dispose();
+    _keywordsController.dispose();
     super.dispose();
+  }
+
+  void _applySearch() {
+    context.read<InspirationProvider>().fetchInspirations(
+          keyword: _searchController.text.trim(),
+          location: _locationController.text.trim(),
+          feeling: _feelingController.text.trim(),
+          objectOrEvent: _objectOrEventController.text.trim(),
+          keywords: _keywordsController.text.trim(),
+        );
+  }
+
+  void _clearSearch() {
+    _searchController.clear();
+    _locationController.clear();
+    _feelingController.clear();
+    _objectOrEventController.clear();
+    _keywordsController.clear();
+    context.read<InspirationProvider>().fetchInspirations();
+  }
+
+  void _openSearchFilters() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) {
+        return Container(
+          padding: EdgeInsets.fromLTRB(
+            20,
+            12,
+            20,
+            20 + MediaQuery.of(context).viewInsets.bottom,
+          ),
+          decoration: const BoxDecoration(
+            color: AppTheme.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 40,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: AppTheme.divider,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                '搜尋條件',
+                style: GoogleFonts.notoSerifTc(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primary,
+                ),
+              ),
+              const SizedBox(height: 12),
+              _filterField(
+                label: '地點',
+                controller: _locationController,
+                icon: Icons.place_outlined,
+              ),
+              const SizedBox(height: 10),
+              _filterField(
+                label: '感受',
+                controller: _feelingController,
+                icon: Icons.favorite_outline_rounded,
+              ),
+              const SizedBox(height: 10),
+              _filterField(
+                label: '事件 / 物品',
+                controller: _objectOrEventController,
+                icon: Icons.auto_awesome_outlined,
+              ),
+              const SizedBox(height: 10),
+              _filterField(
+                label: '關鍵字',
+                controller: _keywordsController,
+                icon: Icons.tag_rounded,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () {
+                        _locationController.clear();
+                        _feelingController.clear();
+                        _objectOrEventController.clear();
+                        _keywordsController.clear();
+                        _applySearch();
+                      },
+                      child: Text('清除條件', style: GoogleFonts.notoSansTc()),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _applySearch();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                      ),
+                      child: Text('套用', style: GoogleFonts.notoSansTc()),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _filterField({
+    required String label,
+    required TextEditingController controller,
+    required IconData icon,
+  }) {
+    return TextField(
+      controller: controller,
+      style: GoogleFonts.notoSansTc(fontSize: 14),
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: GoogleFonts.notoSansTc(color: AppTheme.textHint),
+        prefixIcon: Icon(icon, size: 18),
+      ),
+    );
   }
 
   @override
@@ -54,18 +200,31 @@ class _InspirationListPageState extends State<InspirationListPage> {
             child: TextField(
               controller: _searchController,
               style: GoogleFonts.notoSansTc(fontSize: 14),
-              onSubmitted: (v) => context
-                  .read<InspirationProvider>()
-                  .fetchInspirations(keyword: v),
+              onSubmitted: (_) => _applySearch(),
               decoration: InputDecoration(
-                hintText: '搜尋靈感...',
+                hintText: '搜尋（含地點/感受/事件物品/內容）',
                 prefixIcon: const Icon(Icons.search_rounded, size: 20),
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.clear_rounded, size: 18),
-                  onPressed: () {
-                    _searchController.clear();
-                    context.read<InspirationProvider>().fetchInspirations();
-                  },
+                suffixIconConstraints: const BoxConstraints(
+                  minWidth: 96,
+                  minHeight: 40,
+                ),
+                suffixIcon: SizedBox(
+                  width: 96,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.tune_rounded, size: 18),
+                        tooltip: '搜尋條件',
+                        onPressed: _openSearchFilters,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.clear_rounded, size: 18),
+                        tooltip: '清除搜尋',
+                        onPressed: _clearSearch,
+                      ),
+                    ],
+                  ),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
