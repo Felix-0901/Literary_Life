@@ -11,6 +11,7 @@ from app.models.work import LiteraryWork
 from app.models.response import Response
 from app.models.share import WorkShare
 from app.models.work_inspiration_link import WorkInspirationLink
+from app.models.notification import Notification
 from app.schemas.inspiration import InspirationResponse
 from app.schemas.work import WorkCreate, WorkUpdate, WorkResponse
 from app.services.work_access import ensure_can_access_work
@@ -340,6 +341,29 @@ def update_work(
             resp.completed_cycle_type = cycle.cycle_type
             resp.completed_cycle_status = cycle.status
     return resp
+
+
+@router.delete("/{work_id}", status_code=204)
+def delete_work(
+    work_id: int,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    work = db.query(LiteraryWork).filter(
+        LiteraryWork.id == work_id,
+        LiteraryWork.user_id == current_user.id,
+    ).first()
+    if not work:
+        raise HTTPException(status_code=404, detail="找不到此作品")
+
+    db.query(Response).filter(Response.work_id == work.id).delete(synchronize_session=False)
+    db.query(WorkShare).filter(WorkShare.work_id == work.id).delete(synchronize_session=False)
+    db.query(Notification).filter(Notification.related_work_id == work.id).delete(synchronize_session=False)
+    db.query(WorkInspirationLink).filter(WorkInspirationLink.work_id == work.id).delete(synchronize_session=False)
+
+    db.delete(work)
+    db.commit()
+    return None
 
 
 @router.get("/{work_id}/inspirations", response_model=List[InspirationResponse])
