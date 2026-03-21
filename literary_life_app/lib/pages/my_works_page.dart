@@ -186,6 +186,13 @@ class _MyWorksPageState extends State<MyWorksPage> {
                     '分享',
                     onTap: () => _showShareDialog(work),
                   ),
+                  const SizedBox(width: 4),
+                  _actionButton(
+                    Icons.delete_outline_rounded,
+                    '刪除',
+                    onTap: () => _deleteWork(work, provider),
+                    isActive: true,
+                  ),
                 ],
               ),
             ),
@@ -280,5 +287,62 @@ class _MyWorksPageState extends State<MyWorksPage> {
 
   void _showShareDialog(LiteraryWork work) {
     showWorkShareSheet(context, work);
+  }
+
+  Future<void> _deleteWork(LiteraryWork work, WorkProvider provider) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          '確認刪除文章',
+          style: GoogleFonts.notoSansTc(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          '確定要刪除這篇文章嗎？刪除後將無法復原。',
+          style: GoogleFonts.notoSansTc(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              '刪除',
+              style: TextStyle(color: AppTheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+
+    final ok = await provider.deleteWork(work.id);
+    if (!mounted) return;
+
+    if (ok) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('文章已刪除', style: GoogleFonts.notoSansTc()),
+          backgroundColor: AppTheme.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      return;
+    }
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          provider.error ?? '刪除失敗，請再試一次',
+          style: GoogleFonts.notoSansTc(),
+        ),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 }

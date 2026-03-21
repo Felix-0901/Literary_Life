@@ -185,6 +185,21 @@ class WorkProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> deleteWork(int workId) async {
+    try {
+      _error = null;
+      await _apiClient.delete('${ApiConfig.worksUrl}/$workId');
+      _works.removeWhere((w) => w.id == workId);
+      _publicWorks.removeWhere((w) => w.id == workId);
+      notifyListeners();
+      return true;
+    } catch (error) {
+      _error = error.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   void _replaceWork(LiteraryWork work) {
     final idx = _works.indexWhere((item) => item.id == work.id);
     if (idx >= 0) {
