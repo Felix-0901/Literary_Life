@@ -63,7 +63,7 @@ class _NotificationPageState extends State<NotificationPage> {
                 id: -1,
                 userId: -1,
                 type: 'cycle_reminder',
-                message: '尚未開始週期，點擊建立 3 天或 7 天的創作計畫',
+                message: '尚未開始週期，點擊建立 3 天、7 天或自訂天數的創作計畫',
                 isRead: false,
                 createdAt: DateTime.now(),
               ),
@@ -260,6 +260,102 @@ class _NotificationPageState extends State<NotificationPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
+        Future<int?> promptCustomDays() async {
+          final controller = TextEditingController();
+          String? errorText;
+          final result = await showDialog<int>(
+            context: context,
+            builder: (dialogContext) {
+              return StatefulBuilder(
+                builder: (dialogContext, setState) {
+                  return AlertDialog(
+                    backgroundColor: AppTheme.surface,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    title: Text(
+                      '自訂週期（天數）',
+                      style: GoogleFonts.notoSansTc(
+                        fontWeight: FontWeight.w700,
+                        color: AppTheme.primary,
+                      ),
+                    ),
+                    content: TextField(
+                      controller: controller,
+                      keyboardType: TextInputType.number,
+                      style: GoogleFonts.notoSansTc(color: AppTheme.primary),
+                      decoration: InputDecoration(
+                        labelText: '天數',
+                        hintText: '1～365',
+                        errorText: errorText,
+                      ),
+                      onChanged: (_) {
+                        if (errorText != null) {
+                          setState(() => errorText = null);
+                        }
+                      },
+                    ),
+                    actions: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(dialogContext),
+                        child: Text(
+                          '取消',
+                          style: GoogleFonts.notoSansTc(color: AppTheme.textHint),
+                        ),
+                      ),
+                      ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppTheme.accent,
+                          foregroundColor: Colors.white,
+                        ),
+                        onPressed: () {
+                          final raw = controller.text.trim();
+                          final days = int.tryParse(raw);
+                          if (days == null || days < 1 || days > 365) {
+                            setState(() {
+                              errorText = '請輸入 1～365 的整數';
+                            });
+                            return;
+                          }
+                          Navigator.pop(dialogContext, days);
+                        },
+                        child: Text(
+                          '開始',
+                          style: GoogleFonts.notoSansTc(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  );
+                },
+              );
+            },
+          );
+          controller.dispose();
+          return result;
+        }
+
+        Future<void> start(int days) async {
+          final messenger = ScaffoldMessenger.of(context);
+          final ok = await cycleProvider.startCycle(days);
+          if (!context.mounted) return;
+          if (ok) {
+            Navigator.pop(context);
+            return;
+          }
+          messenger.showSnackBar(
+            SnackBar(
+              content: Text(
+                cycleProvider.error ?? '開始週期失敗',
+                style: GoogleFonts.notoSansTc(),
+              ),
+              backgroundColor: AppTheme.error,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+
         return Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -276,7 +372,7 @@ class _NotificationPageState extends State<NotificationPage> {
               ),
               const SizedBox(height: 8),
               Text(
-                '選擇 3 天或 7 天，開始記錄你的日常靈感',
+                '選擇 3 天、7 天或自訂天數，開始記錄你的日常靈感',
                 style: GoogleFonts.notoSansTc(
                   fontSize: 14,
                   color: AppTheme.textSecondary,
@@ -296,8 +392,7 @@ class _NotificationPageState extends State<NotificationPage> {
                         ),
                       ),
                       onPressed: () {
-                        cycleProvider.startCycle(3);
-                        Navigator.pop(context);
+                        start(3);
                       },
                       child: Text(
                         '3 天',
@@ -319,8 +414,7 @@ class _NotificationPageState extends State<NotificationPage> {
                         ),
                       ),
                       onPressed: () {
-                        cycleProvider.startCycle(7);
-                        Navigator.pop(context);
+                        start(7);
                       },
                       child: Text(
                         '7 天',
@@ -331,6 +425,31 @@ class _NotificationPageState extends State<NotificationPage> {
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppTheme.accent,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    side: const BorderSide(color: AppTheme.accent),
+                  ),
+                  onPressed: () async {
+                    final days = await promptCustomDays();
+                    if (!context.mounted || days == null) return;
+                    await start(days);
+                  },
+                  child: Text(
+                    '自訂天數',
+                    style: GoogleFonts.notoSansTc(
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
             ],

@@ -19,8 +19,8 @@ def create_cycle(
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    if data.cycle_type not in (3, 7):
-        raise HTTPException(status_code=400, detail="週期只能是 3 天或 7 天")
+    if data.cycle_type < 1 or data.cycle_type > 365:
+        raise HTTPException(status_code=400, detail="週期天數需介於 1 到 365 天")
 
     # Check if there's already an active cycle
     active = db.query(WritingCycle).filter(

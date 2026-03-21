@@ -1,10 +1,9 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Optional
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import date, datetime
 
 
 class CycleCreate(BaseModel):
-    cycle_type: int = 7  # 3 or 7
+    cycle_type: int = Field(default=7, ge=1, le=365)
 
 
 class CycleResponse(BaseModel):
