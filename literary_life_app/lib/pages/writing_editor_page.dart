@@ -27,6 +27,8 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
   String _selectedGenre = '散文';
   bool _saving = false;
   bool _aiLoading = false;
+  bool _deleting = false;
+  bool _settingsExpanded = false;
 
   final List<String> _genres = ['散文', '新詩', '短札記', '微小說', '書信體'];
   List<String> _hashtags = [];
@@ -36,17 +38,22 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
   bool _loadingAvailableInspirations = false;
   String? _availableInspirationsError;
   List<Inspiration> _availableInspirations = [];
+  LiteraryWork? _work;
 
   @override
   void initState() {
     super.initState();
-    if (widget.work != null) {
-      _titleController.text = widget.work!.title;
-      _contentController.text = widget.work!.content;
-      _selectedGenre = widget.work!.genre;
-      _hashtags = _parseHashtags(widget.work!.hashtags);
-      _completedCycleId = widget.work!.completedCycleId;
-      _selectedInspirationIds = List<int>.from(widget.work!.inspirationIds);
+    _work = widget.work;
+    if (_work != null) {
+      _titleController.text = _work!.title;
+      _contentController.text = _work!.content;
+      _selectedGenre = _work!.genre;
+      _hashtags = _parseHashtags(_work!.hashtags);
+      _completedCycleId = _work!.completedCycleId;
+      _selectedInspirationIds = List<int>.from(_work!.inspirationIds);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _ensureMetadataLoaded();
+      });
     }
   }
 
@@ -134,12 +141,377 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
     });
   }
 
+  Widget _buildInlineSettings() {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+        border: Border.all(color: AppTheme.divider.withValues(alpha: 0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          InkWell(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            onTap: _openInspirationPicker,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Row(
+                children: [
+                  Text(
+                    '靈感來源',
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    _selectedInspirationIds.isEmpty
+                        ? '未選擇'
+                        : '已選 ${_selectedInspirationIds.length}',
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 12,
+                      color: AppTheme.textHint,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  const Icon(
+                    Icons.chevron_right_rounded,
+                    size: 20,
+                    color: AppTheme.textHint,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (_completedCycleId != null)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '僅顯示此週期期間內的靈感',
+                style: GoogleFonts.notoSansTc(fontSize: 12, color: AppTheme.textHint),
+              ),
+            ),
+          const Divider(height: 18, color: AppTheme.divider),
+          InkWell(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+            onTap: () => setState(() => _settingsExpanded = !_settingsExpanded),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Text(
+                    '文章設定',
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const Spacer(),
+                  Icon(
+                    _settingsExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    size: 20,
+                    color: AppTheme.textHint,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          TweenAnimationBuilder<double>(
+            duration: const Duration(milliseconds: 200),
+            curve: Curves.easeOutCubic,
+            tween: Tween<double>(begin: 0, end: _settingsExpanded ? 1 : 0),
+            builder: (context, value, child) {
+              return ClipRect(
+                child: Align(
+                  alignment: Alignment.topCenter,
+                  heightFactor: value,
+                  child: child,
+                ),
+              );
+            },
+            child: Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Hashtag',
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  TextField(
+                    controller: _hashtagController,
+                    onSubmitted: (_) => _addHashtagsFromInput(),
+                    style: GoogleFonts.notoSansTc(fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: '#旅行 #夜晚',
+                      suffixIcon: IconButton(
+                        tooltip: '新增',
+                        onPressed: _addHashtagsFromInput,
+                        icon: const Icon(Icons.add_rounded, size: 18),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  if (_hashtags.isNotEmpty)
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _hashtags
+                          .map(
+                            (t) => Chip(
+                              label: Text(
+                                t,
+                                style: GoogleFonts.notoSansTc(fontSize: 12),
+                              ),
+                              onDeleted: () => setState(() => _hashtags.remove(t)),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  const SizedBox(height: 18),
+                  Text(
+                    '完成週期',
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Consumer<CycleProvider>(
+                    builder: (context, provider, _) {
+                      final completed = provider.allCycles
+                          .where((c) => c.status == 'completed')
+                          .toList();
+                      String labelFor(int id) {
+                        dynamic c;
+                        for (final x in provider.allCycles) {
+                          if (x.id == id) {
+                            c = x;
+                            break;
+                          }
+                        }
+                        if (c == null) return '已選週期';
+                        final df = DateFormat('yyyy/MM/dd');
+                        return '${df.format(c.startDate)} - ${df.format(c.endDate)}';
+                      }
+
+                      return DropdownButtonFormField<int?>(
+                        initialValue: _completedCycleId,
+                        isExpanded: true,
+                        items: [
+                          DropdownMenuItem<int?>(
+                            value: null,
+                            child: Text('未指定', style: GoogleFonts.notoSansTc()),
+                          ),
+                          ...completed.map((c) {
+                            final df = DateFormat('yyyy/MM/dd');
+                            final label = '${df.format(c.startDate)} - ${df.format(c.endDate)}';
+                            return DropdownMenuItem<int?>(
+                              value: c.id,
+                              child: Text(
+                                label,
+                                style: GoogleFonts.notoSansTc(fontSize: 13),
+                              ),
+                            );
+                          }),
+                        ],
+                        onChanged: (value) {
+                          setState(() {
+                            _completedCycleId = value;
+                            _selectedInspirationIds = [];
+                          });
+                          _fetchAvailableInspirations();
+                        },
+                        decoration: InputDecoration(
+                          hintText: _completedCycleId == null
+                              ? '選擇已完成週期'
+                              : labelFor(_completedCycleId!),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openInspirationPicker() async {
+    await _ensureMetadataLoaded();
+    if (!mounted) return;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: AppTheme.background,
+      builder: (ctx) {
+        return SafeArea(
+          child: FractionallySizedBox(
+            heightFactor: 0.86,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+              child: Column(
+                children: [
+                  Row(
+                    children: [
+                      Text(
+                        '選擇靈感來源',
+                        style: GoogleFonts.notoSerifTc(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: AppTheme.primary,
+                        ),
+                      ),
+                      const Spacer(),
+                      IconButton(
+                        tooltip: '關閉',
+                        onPressed: () => Navigator.pop(ctx),
+                        icon: const Icon(Icons.close_rounded, size: 20),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  if (_completedCycleId != null)
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        '僅顯示此週期期間內的靈感',
+                        style: GoogleFonts.notoSansTc(
+                          fontSize: 12,
+                          color: AppTheme.textHint,
+                        ),
+                      ),
+                    ),
+                  if (_completedCycleId != null) const SizedBox(height: 8),
+                  Expanded(
+                    child: _loadingAvailableInspirations
+                        ? const Center(
+                            child: CircularProgressIndicator(color: AppTheme.accent),
+                          )
+                        : (_availableInspirationsError != null)
+                            ? Center(
+                                child: Text(
+                                  _availableInspirationsError!,
+                                  style: GoogleFonts.notoSansTc(
+                                    color: AppTheme.error,
+                                    fontSize: 12,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              )
+                            : (_availableInspirations.isEmpty)
+                                ? Center(
+                                    child: Text(
+                                      '沒有可選擇的靈感',
+                                      style: GoogleFonts.notoSansTc(
+                                        color: AppTheme.textHint,
+                                      ),
+                                    ),
+                                  )
+                                : Container(
+                                    decoration: BoxDecoration(
+                                      color: AppTheme.surface,
+                                      borderRadius: BorderRadius.circular(
+                                        AppTheme.radiusMedium,
+                                      ),
+                                      border: Border.all(color: AppTheme.divider),
+                                    ),
+                                    child: ListView.separated(
+                                      itemCount: _availableInspirations.length,
+                                      separatorBuilder: (_, __) => const Divider(height: 1),
+                                      itemBuilder: (context, index) {
+                                        final insp = _availableInspirations[index];
+                                        final checked = _selectedInspirationIds.contains(insp.id);
+                                        final title = insp.objectOrEvent.isNotEmpty
+                                            ? insp.objectOrEvent
+                                            : (insp.detailText.isNotEmpty
+                                                ? insp.detailText
+                                                : '（未命名靈感）');
+                                        final subtitleParts = <String>[];
+                                        if (insp.location.isNotEmpty) {
+                                          subtitleParts.add(insp.location);
+                                        }
+                                        if (insp.feeling.isNotEmpty) {
+                                          subtitleParts.add(insp.feeling);
+                                        }
+                                        final subtitle = subtitleParts.join(' · ');
+                                        return CheckboxListTile(
+                                          value: checked,
+                                          onChanged: (v) {
+                                            setState(() {
+                                              if (v == true) {
+                                                if (!_selectedInspirationIds.contains(insp.id)) {
+                                                  _selectedInspirationIds.add(insp.id);
+                                                }
+                                              } else {
+                                                _selectedInspirationIds.remove(insp.id);
+                                              }
+                                            });
+                                          },
+                                          title: Text(
+                                            title,
+                                            style: GoogleFonts.notoSansTc(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w600,
+                                              color: AppTheme.primary,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                          subtitle: subtitle.isEmpty
+                                              ? null
+                                              : Text(
+                                                  subtitle,
+                                                  style: GoogleFonts.notoSansTc(
+                                                    fontSize: 12,
+                                                    color: AppTheme.textHint,
+                                                  ),
+                                                  maxLines: 1,
+                                                  overflow: TextOverflow.ellipsis,
+                                                ),
+                                          controlAffinity:
+                                              ListTileControlAffinity.leading,
+                                          dense: true,
+                                          contentPadding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Future<void> _saveWork({bool publish = false, bool unpublish = false}) async {
     final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
     final workProvider = context.read<WorkProvider>();
     final cycleProvider = context.read<CycleProvider>();
     final shellController = context.read<MainShellController>();
+    final isEditing = _work != null;
 
     if (_titleController.text.isEmpty) {
       messenger.showSnackBar(
@@ -158,9 +530,9 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
     LiteraryWork? work;
     final hashtags = _joinHashtags(_hashtags);
 
-    if (widget.work != null) {
+    if (isEditing) {
       work = await workProvider.updateWork(
-        widget.work!.id,
+        _work!.id,
         title: _titleController.text.trim(),
         genre: _selectedGenre,
         content: _contentController.text,
@@ -184,15 +556,28 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
     }
 
     if (mounted && work != null) {
-      final isNowPublished = widget.work?.isPublished ?? false;
-      if (publish && !isNowPublished) {
-        await workProvider.publishWork(work.id);
-      } else if (unpublish && isNowPublished) {
-        await workProvider.unpublishWork(work.id);
+      final wasPublished = _work?.isPublished ?? false;
+      if (publish && !wasPublished) {
+        final updated = await workProvider.publishWork(work.id);
+        if (updated != null) work = updated;
+      } else if (unpublish && wasPublished) {
+        final updated = await workProvider.unpublishWork(work.id);
+        if (updated != null) work = updated;
       }
 
       if (!mounted) return;
-      setState(() => _saving = false);
+      setState(() {
+        _saving = false;
+        if (isEditing) {
+          _work = work;
+          _selectedGenre = work!.genre;
+          _hashtags = _parseHashtags(work.hashtags);
+          _completedCycleId = work.completedCycleId;
+          _selectedInspirationIds = List<int>.from(work.inspirationIds);
+          _titleController.text = work.title;
+          _contentController.text = work.content;
+        }
+      });
       messenger.showSnackBar(
         SnackBar(
           content: Text(
@@ -205,12 +590,10 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
       );
 
       // Navigate to Home tab or pop back
-      if (widget.work == null) {
+      if (!isEditing) {
         _titleController.clear();
         _contentController.clear();
         shellController.switchTab(0);
-      } else {
-        navigator.pop();
       }
     } else {
       if (mounted) {
@@ -234,6 +617,70 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
         );
       }
     }
+  }
+
+  Future<void> _deleteCurrentWork() async {
+    if (_work == null) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final workProvider = context.read<WorkProvider>();
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(
+          '確認刪除文章',
+          style: GoogleFonts.notoSansTc(fontWeight: FontWeight.w600),
+        ),
+        content: Text(
+          '確定要刪除這篇文章嗎？刪除後將無法復原。',
+          style: GoogleFonts.notoSansTc(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              '刪除',
+              style: TextStyle(color: AppTheme.error),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (!mounted || confirmed != true) return;
+
+    setState(() => _deleting = true);
+    final ok = await workProvider.deleteWork(_work!.id);
+    if (!mounted) return;
+    setState(() => _deleting = false);
+
+    if (ok) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('文章已刪除', style: GoogleFonts.notoSansTc()),
+          backgroundColor: AppTheme.primary,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+      navigator.pop();
+      return;
+    }
+
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          workProvider.error ?? '刪除失敗，請再試一次',
+          style: GoogleFonts.notoSansTc(),
+        ),
+        backgroundColor: AppTheme.error,
+        behavior: SnackBarBehavior.floating,
+      ),
+    );
   }
 
   Future<void> _getAiHelp(String helpType) async {
@@ -386,7 +833,8 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
 
   @override
   Widget build(BuildContext context) {
-    final isPublished = widget.work?.isPublished ?? false;
+    final isEditing = _work != null;
+    final isPublished = _work?.isPublished ?? false;
     final canPop = Navigator.of(context).canPop();
     return Scaffold(
       key: _scaffoldKey,
@@ -394,42 +842,78 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: Text(
-          widget.work != null ? '編輯作品' : '創作',
+          isEditing ? '編輯作品' : '創作',
           style: GoogleFonts.notoSerifTc(),
         ),
-        leadingWidth: canPop ? 96 : 56,
-        leading: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (canPop)
-              IconButton(
-                tooltip: '返回',
-                onPressed: () => Navigator.pop(context),
+        leadingWidth: 56,
+        leading: isEditing
+            ? (canPop
+                ? IconButton(
+                    tooltip: '返回',
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      size: 18,
+                      color: AppTheme.textSecondary,
+                    ),
+                  )
+                : const SizedBox.shrink())
+            : IconButton(
+                tooltip: '文章設定',
+                onPressed: _openMetadataDrawer,
                 icon: const Icon(
-                  Icons.arrow_back_ios_new_rounded,
-                  size: 18,
+                  Icons.menu_rounded,
+                  size: 20,
                   color: AppTheme.textSecondary,
                 ),
               ),
-            IconButton(
-              tooltip: '文章設定',
-              onPressed: _openMetadataDrawer,
-              icon: const Icon(
-                Icons.menu_rounded,
-                size: 20,
-                color: AppTheme.textSecondary,
-              ),
-            ),
-          ],
-        ),
         actions: [
-          if (_saving)
+          if (_saving || _deleting)
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16),
               child: SizedBox(
                 width: 16,
                 height: 16,
                 child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            )
+          else if (isEditing)
+            PopupMenuButton<String>(
+              tooltip: '更多',
+              onSelected: (value) {
+                if (value == 'save') _saveWork();
+                if (value == 'toggle_publish') {
+                  _saveWork(publish: !isPublished, unpublish: isPublished);
+                }
+                if (value == 'delete') _deleteCurrentWork();
+              },
+              itemBuilder: (ctx) => [
+                PopupMenuItem(
+                  value: 'save',
+                  child: Text('儲存', style: GoogleFonts.notoSansTc()),
+                ),
+                PopupMenuItem(
+                  value: 'toggle_publish',
+                  child: Text(
+                    isPublished ? '取消發布' : '發布',
+                    style: GoogleFonts.notoSansTc(
+                      color: isPublished ? AppTheme.error : AppTheme.primary,
+                    ),
+                  ),
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: Text(
+                    '刪除文章',
+                    style: GoogleFonts.notoSansTc(color: AppTheme.error),
+                  ),
+                ),
+              ],
+              icon: const Icon(
+                Icons.more_vert_rounded,
+                size: 20,
+                color: AppTheme.textSecondary,
               ),
             )
           else
@@ -444,7 +928,9 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
             ),
         ],
       ),
-      drawer: Drawer(
+      drawer: isEditing
+          ? null
+          : Drawer(
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
@@ -701,22 +1187,29 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
           ),
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 48),
-        child: FloatingActionButton(
-          heroTag: 'writing_publish_fab',
-          onPressed:
-              _saving ? null : () => _saveWork(publish: !isPublished, unpublish: isPublished),
-          backgroundColor: isPublished ? AppTheme.error : AppTheme.accent,
-          shape: const CircleBorder(),
-          tooltip: isPublished ? '取消發布' : '發布',
-          child: Icon(
-            isPublished ? Icons.public_off_rounded : Icons.publish_rounded,
-            color: Colors.white,
-          ),
-        ),
-      ),
+      floatingActionButtonLocation:
+          isEditing ? null : FloatingActionButtonLocation.endFloat,
+      floatingActionButton: isEditing
+          ? null
+          : Padding(
+              padding: const EdgeInsets.only(bottom: 48),
+              child: FloatingActionButton(
+                heroTag: 'writing_publish_fab',
+                onPressed: _saving
+                    ? null
+                    : () => _saveWork(
+                      publish: !isPublished,
+                      unpublish: isPublished,
+                    ),
+                backgroundColor: isPublished ? AppTheme.error : AppTheme.accent,
+                shape: const CircleBorder(),
+                tooltip: isPublished ? '取消發布' : '發布',
+                child: Icon(
+                  isPublished ? Icons.public_off_rounded : Icons.publish_rounded,
+                  color: Colors.white,
+                ),
+              ),
+            ),
       body: Column(
         children: [
           Padding(
@@ -791,6 +1284,7 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
                   ),
                 ),
                 const Divider(height: 24, color: AppTheme.divider),
+                if (isEditing) _buildInlineSettings(),
               ],
             ),
           ),
