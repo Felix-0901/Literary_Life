@@ -23,7 +23,6 @@ class Settings(BaseSettings):
     AI_API_URL: str = "https://liangjiewis.com/v1"
     AI_API_KEY: str = ""
     AI_MODEL: str = "gpt-4o-mini"
-    AI_WHISPER_MODEL: str = "whisper-1"
     SENTRY_DSN: str = ""
 
     @property

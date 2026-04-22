@@ -1,11 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:just_audio/just_audio.dart';
-import 'package:path_provider/path_provider.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
@@ -13,6 +11,7 @@ import '../config/theme.dart';
 import '../providers/cycle_provider.dart';
 import '../providers/inspiration_provider.dart';
 import '../services/api_service.dart';
+import '../utils/audio_temp_helper.dart';
 
 enum _VoiceStage { idle, recording, recorded, transcribing }
 
@@ -28,7 +27,10 @@ class _VoiceInspirationSheetState extends State<VoiceInspirationSheet> {
   final AudioPlayer _player = AudioPlayer();
 
   _VoiceStage _stage = _VoiceStage.idle;
-  String? _recordingPath;
+
+  /// On mobile: real filesystem path. On web: a `blob:` URL.
+  String? _recordingLocator;
+
   Duration _elapsed = Duration.zero;
   Timer? _elapsedTimer;
   StreamSubscription<PlayerState>? _playerStateSub;
@@ -41,22 +43,27 @@ class _VoiceInspirationSheetState extends State<VoiceInspirationSheet> {
     _playerStateSub?.cancel();
     _player.dispose();
     _recorder.dispose();
-    _deleteRecordingFile();
+    _cleanupRecording();
     super.dispose();
   }
 
-  Future<void> _deleteRecordingFile() async {
-    final path = _recordingPath;
-    if (path == null) return;
+  Future<void> _cleanupRecording() async {
+    final locator = _recordingLocator;
+    if (locator == null) return;
+    await deleteRecording(locator);
+    _recordingLocator = null;
+  }
+
+  Future<bool> _ensureMicrophonePermission() async {
     try {
-      final file = File(path);
-      if (await file.exists()) {
-        await file.delete();
-      }
+      final granted = await _recorder.hasPermission();
+      if (granted) return true;
     } catch (_) {
-      // Swallow — the file may already be gone.
+      // fall through
     }
-    _recordingPath = null;
+    if (!mounted) return false;
+    setState(() => _error = '需要麥克風權限才能錄音');
+    return false;
   }
 
   Future<void> _startRecording() async {
@@ -65,14 +72,12 @@ class _VoiceInspirationSheetState extends State<VoiceInspirationSheet> {
     if (!hasPermission) return;
 
     try {
-      final dir = await getTemporaryDirectory();
-      final path =
-          '${dir.path}/voice_${DateTime.now().millisecondsSinceEpoch}.m4a';
-      await _recorder.start(
-        const RecordConfig(encoder: AudioEncoder.aacLc),
-        path: path,
+      final target = await buildRecordingTarget();
+      final config = RecordConfig(
+        encoder: kIsWeb ? AudioEncoder.opus : AudioEncoder.aacLc,
       );
-      _recordingPath = path;
+      await _recorder.start(config, path: target);
+      _recordingLocator = target;
       _elapsed = Duration.zero;
       _elapsedTimer?.cancel();
       _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -88,8 +93,10 @@ class _VoiceInspirationSheetState extends State<VoiceInspirationSheet> {
   Future<void> _stopRecording() async {
     _elapsedTimer?.cancel();
     try {
-      final path = await _recorder.stop();
-      if (path != null) _recordingPath = path;
+      final result = await _recorder.stop();
+      if (result != null && result.isNotEmpty) {
+        _recordingLocator = result;
+      }
       setState(() => _stage = _VoiceStage.recorded);
     } catch (e) {
       setState(() {
@@ -99,27 +106,25 @@ class _VoiceInspirationSheetState extends State<VoiceInspirationSheet> {
     }
   }
 
-  Future<bool> _ensureMicrophonePermission() async {
-    final status = await Permission.microphone.request();
-    if (status.isGranted) return true;
-    if (!mounted) return false;
-    setState(() => _error = '需要麥克風權限才能錄音');
-    return false;
-  }
-
   Future<void> _togglePlayback() async {
-    final path = _recordingPath;
-    if (path == null) return;
+    final locator = _recordingLocator;
+    if (locator == null) return;
     try {
       if (_isPlaying) {
         await _player.pause();
         return;
       }
       if (_player.audioSource == null) {
-        await _player.setFilePath(path);
+        if (kIsWeb) {
+          await _player.setUrl(locator);
+        } else {
+          await _player.setFilePath(locator);
+        }
         _playerStateSub ??= _player.playerStateStream.listen((state) {
           if (!mounted) return;
-          final playing = state.playing && state.processingState != ProcessingState.completed;
+          final playing =
+              state.playing &&
+              state.processingState != ProcessingState.completed;
           if (state.processingState == ProcessingState.completed) {
             _player.seek(Duration.zero);
             _player.pause();
@@ -136,7 +141,7 @@ class _VoiceInspirationSheetState extends State<VoiceInspirationSheet> {
 
   Future<void> _resetRecording() async {
     await _player.stop();
-    await _deleteRecordingFile();
+    await _cleanupRecording();
     if (!mounted) return;
     setState(() {
       _stage = _VoiceStage.idle;
@@ -147,8 +152,8 @@ class _VoiceInspirationSheetState extends State<VoiceInspirationSheet> {
   }
 
   Future<void> _transcribeAndSave() async {
-    final path = _recordingPath;
-    if (path == null) return;
+    final locator = _recordingLocator;
+    if (locator == null) return;
 
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
@@ -162,14 +167,18 @@ class _VoiceInspirationSheetState extends State<VoiceInspirationSheet> {
 
     try {
       await _player.stop();
-      final result = await ApiService.transcribeInspiration(File(path));
+      final bytes = await readRecordingBytes(locator);
+      final result = await ApiService.transcribeInspiration(
+        bytes,
+        filename: recordingUploadFilename,
+      );
       final success = await inspirationProvider.createInspiration(
         cycleId: cycleId,
         eventTime: DateTime.now(),
         objectOrEvent: result.title,
         detailText: result.transcript,
       );
-      await _deleteRecordingFile();
+      await _cleanupRecording();
 
       if (!mounted) return;
       if (success) {

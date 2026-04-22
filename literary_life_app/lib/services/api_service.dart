@@ -1,5 +1,5 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/api_config.dart';
@@ -326,8 +326,9 @@ class ApiService {
   }
 
   static Future<({String title, String transcript})> transcribeInspiration(
-    File audioFile,
-  ) async {
+    Uint8List audioBytes, {
+    String filename = 'voice.m4a',
+  }) async {
     final request = http.MultipartRequest(
       'POST',
       Uri.parse('${ApiConfig.aiUrl}/transcribe-inspiration'),
@@ -335,7 +336,9 @@ class ApiService {
     if (_token != null) {
       request.headers['Authorization'] = 'Bearer $_token';
     }
-    request.files.add(await http.MultipartFile.fromPath('audio', audioFile.path));
+    request.files.add(
+      http.MultipartFile.fromBytes('audio', audioBytes, filename: filename),
+    );
     final streamed = await request.send();
     final response = await http.Response.fromStream(streamed);
     if (response.statusCode == 401) {

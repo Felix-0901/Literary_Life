@@ -1,11 +1,53 @@
-import httpx
+import asyncio
+import io
+import os
 from typing import List, Optional
+
+import httpx
+
 from app.config import get_settings
 
 settings = get_settings()
 
+
+WHISPER_MODEL_SIZE = os.environ.get("WHISPER_MODEL_SIZE", "small")
+WHISPER_MODEL_DIR = os.environ.get("WHISPER_MODEL_DIR", "/app/models")
+WHISPER_COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE_TYPE", "int8")
+
+
 class AIServiceError(RuntimeError):
     pass
+
+
+_whisper_model = None
+_whisper_model_lock = asyncio.Lock()
+
+
+async def _load_whisper_model():
+    """Lazy-load the faster-whisper model once per process."""
+    global _whisper_model
+    if _whisper_model is not None:
+        return _whisper_model
+    async with _whisper_model_lock:
+        if _whisper_model is not None:
+            return _whisper_model
+        try:
+            from faster_whisper import WhisperModel
+        except ImportError as e:
+            raise AIServiceError(
+                "faster-whisper 尚未安裝，請確認後端相依套件"
+            ) from e
+        loop = asyncio.get_running_loop()
+        _whisper_model = await loop.run_in_executor(
+            None,
+            lambda: WhisperModel(
+                WHISPER_MODEL_SIZE,
+                device="cpu",
+                compute_type=WHISPER_COMPUTE_TYPE,
+                download_root=WHISPER_MODEL_DIR,
+            ),
+        )
+    return _whisper_model
 
 
 async def call_ai(prompt: str, system_prompt: str = "") -> str:
@@ -94,29 +136,36 @@ async def get_writing_help(help_type: str, context: str) -> str:
     return await call_ai(prompt, LITERARY_SYSTEM_PROMPT)
 
 
-async def transcribe_audio(audio_bytes: bytes, filename: str) -> str:
-    """Transcribe audio to text via OpenAI-compatible /audio/transcriptions."""
-    if not settings.AI_API_KEY:
-        raise AIServiceError("AI_API_KEY 尚未設定")
+def _run_whisper_transcribe(model, audio_bytes: bytes) -> str:
+    """Blocking transcription — run in an executor."""
+    audio_io = io.BytesIO(audio_bytes)
+    segments, _ = model.transcribe(
+        audio_io,
+        language="zh",
+        beam_size=5,
+        vad_filter=True,
+    )
+    text = "".join(segment.text for segment in segments).strip()
+    return text
 
-    async with httpx.AsyncClient(timeout=120.0) as client:
-        try:
-            response = await client.post(
-                f"{settings.AI_API_URL}/audio/transcriptions",
-                headers={"Authorization": f"Bearer {settings.AI_API_KEY}"},
-                files={"file": (filename, audio_bytes, "application/octet-stream")},
-                data={"model": settings.AI_WHISPER_MODEL},
-            )
-            response.raise_for_status()
-            data = response.json()
-            text = data.get("text")
-            if not isinstance(text, str) or not text.strip():
-                raise AIServiceError("語音轉文字失敗：回應內容為空")
-            return text.strip()
-        except AIServiceError:
-            raise
-        except Exception as e:
-            raise AIServiceError(f"語音轉文字服務暫時無法使用：{str(e)}") from e
+
+async def transcribe_audio(audio_bytes: bytes, filename: str) -> str:
+    """Transcribe audio bytes to text using the local faster-whisper model."""
+    if not audio_bytes:
+        raise AIServiceError("音訊內容為空")
+    try:
+        model = await _load_whisper_model()
+        loop = asyncio.get_running_loop()
+        text = await loop.run_in_executor(
+            None, _run_whisper_transcribe, model, audio_bytes
+        )
+    except AIServiceError:
+        raise
+    except Exception as e:
+        raise AIServiceError(f"語音轉文字失敗：{str(e)}") from e
+    if not text:
+        raise AIServiceError("語音轉文字失敗：結果為空")
+    return text
 
 
 async def summarize_inspiration_title(transcript: str) -> str:
