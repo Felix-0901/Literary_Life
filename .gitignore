@@ -10,6 +10,7 @@ Thumbs.db
 # Python backend
 literary_life_backend/.env
 literary_life_backend/.venv/
+literary_life_backend/.ci-venv*/
 literary_life_backend/.pytest_cache/
 literary_life_backend/__pycache__/
 literary_life_backend/app/__pycache__/
@@ -23,7 +24,6 @@ literary_life_app/.flutter-plugins
 literary_life_app/.flutter-plugins-dependencies
 literary_life_app/.metadata
 literary_life_app/.packages
-literary_life_app/pubspec.lock
 literary_life_app/ios/Pods/
 literary_life_app/ios/.symlinks/
 literary_life_app/ios/Flutter/Generated.xcconfig
@@ -45,3 +45,7 @@ docker-compose.override.yml
 
 # Trae
 .trae/
+
+# Local AI agent workspace
+.agent/
+.claude/
