@@ -49,10 +49,10 @@ class _QuickAddSheetState extends State<QuickAddSheet> {
   }
 
   Future<void> _save() async {
-    if (_eventController.text.isEmpty && _detailController.text.isEmpty) {
+    if (_eventController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('至少填寫事件或細節描寫'),
+          content: Text('請填寫事件 / 物品'),
           backgroundColor: AppTheme.error,
         ),
       );
@@ -179,8 +179,8 @@ class _QuickAddSheetState extends State<QuickAddSheet> {
                   ),
                   _buildField(
                     Icons.event_note_rounded,
-                    '事件 / 物品',
-                    '發生了什麼？看到了什麼？',
+                    '事件 / 物品 *',
+                    '發生了什麼？看到了什麼？（必填）',
                     _eventController,
                   ),
                   _buildField(

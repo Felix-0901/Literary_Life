@@ -39,6 +39,7 @@ class ShareFeedItem {
   final String workTitle;
   final String workContent;
   final String workGenre;
+  final String workType;
   final bool workIsPublished;
   final int authorId;
   final String authorNickname;
@@ -54,6 +55,7 @@ class ShareFeedItem {
     required this.workTitle,
     required this.workContent,
     required this.workGenre,
+    this.workType = 'literary',
     required this.workIsPublished,
     required this.authorId,
     required this.authorNickname,
@@ -71,6 +73,7 @@ class ShareFeedItem {
       workTitle: json['work_title'],
       workContent: json['work_content'],
       workGenre: json['work_genre'],
+      workType: json['work_type'] ?? 'literary',
       workIsPublished: json['work_is_published'],
       authorId: json['author_id'],
       authorNickname: json['author_nickname'],
@@ -83,6 +86,7 @@ class ShareFeedItem {
       id: workId,
       userId: authorId,
       title: workTitle,
+      workType: workType,
       genre: workGenre,
       content: workContent,
       visibility: workIsPublished ? 'public' : 'private',

@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../config/api_config.dart';
@@ -322,6 +323,33 @@ class ApiService {
       body: {'help_type': helpType, 'context': context},
     );
     return data['result'] ?? '';
+  }
+
+  static Future<({String title, String transcript})> transcribeInspiration(
+    File audioFile,
+  ) async {
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('${ApiConfig.aiUrl}/transcribe-inspiration'),
+    );
+    if (_token != null) {
+      request.headers['Authorization'] = 'Bearer $_token';
+    }
+    request.files.add(await http.MultipartFile.fromPath('audio', audioFile.path));
+    final streamed = await request.send();
+    final response = await http.Response.fromStream(streamed);
+    if (response.statusCode == 401) {
+      await clearToken();
+      throw ApiException(response.statusCode, _parseError(response));
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(response.statusCode, _parseError(response));
+    }
+    final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    return (
+      title: (data['title'] ?? '') as String,
+      transcript: (data['transcript'] ?? '') as String,
+    );
   }
 
   // ── Generic HTTP helpers ──

@@ -534,8 +534,17 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
                           .toList(),
                     ),
                   ],
+                  const SizedBox(height: 24),
+                  Text(
+                    _work.content,
+                    style: GoogleFonts.notoSansTc(
+                      fontSize: 16,
+                      color: AppTheme.textSecondary,
+                      height: 1.8,
+                    ),
+                  ),
                   if (_work.inspirationIds.isNotEmpty) ...[
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 32),
                     InkWell(
                       onTap: _showInspirationsSheet,
                       borderRadius: BorderRadius.circular(12),
@@ -559,7 +568,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
                             ),
                             const SizedBox(width: 8),
                             Text(
-                              '靈感來源（${_work.inspirationIds.length}）',
+                              '查看靈感來源（${_work.inspirationIds.length}）',
                               style: GoogleFonts.notoSansTc(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,
@@ -568,7 +577,7 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
                             ),
                             const Spacer(),
                             const Icon(
-                              Icons.chevron_right_rounded,
+                              Icons.keyboard_arrow_up_rounded,
                               color: AppTheme.textHint,
                             ),
                           ],
@@ -576,15 +585,6 @@ class _ArticleDetailPageState extends State<ArticleDetailPage> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 24),
-                  Text(
-                    _work.content,
-                    style: GoogleFonts.notoSansTc(
-                      fontSize: 16,
-                      color: AppTheme.textSecondary,
-                      height: 1.8,
-                    ),
-                  ),
                   const SizedBox(height: 40),
                   const Divider(),
                   const SizedBox(height: 16),

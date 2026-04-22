@@ -4,6 +4,7 @@ class LiteraryWork {
   final int? cycleId;
   final int? completedCycleId;
   final String title;
+  final String workType;
   final String genre;
   final String content;
   final bool isPublished;
@@ -25,6 +26,7 @@ class LiteraryWork {
     this.cycleId,
     this.completedCycleId,
     required this.title,
+    this.workType = 'literary',
     this.genre = '散文',
     required this.content,
     this.isPublished = false,
@@ -48,6 +50,7 @@ class LiteraryWork {
       cycleId: json['cycle_id'],
       completedCycleId: json['completed_cycle_id'],
       title: json['title'],
+      workType: json['work_type'] ?? 'literary',
       genre: json['genre'] ?? '散文',
       content: json['content'],
       isPublished: json['is_published'] ?? false,
@@ -78,6 +81,7 @@ class LiteraryWork {
     int? cycleId,
     int? completedCycleId,
     String? title,
+    String? workType,
     String? genre,
     String? content,
     bool? isPublished,
@@ -99,6 +103,7 @@ class LiteraryWork {
       cycleId: cycleId ?? this.cycleId,
       completedCycleId: completedCycleId ?? this.completedCycleId,
       title: title ?? this.title,
+      workType: workType ?? this.workType,
       genre: genre ?? this.genre,
       content: content ?? this.content,
       isPublished: isPublished ?? this.isPublished,

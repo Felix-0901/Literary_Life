@@ -1,6 +1,6 @@
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
@@ -166,6 +166,7 @@ def share_work(
 
 @router.get("/feed", response_model=List[ShareFeedItem])
 def get_shared_feed(
+    work_type: Optional[str] = Query(None),
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
@@ -202,12 +203,13 @@ def get_shared_feed(
         .subquery()
     )
 
-    rows = (
+    query = (
         db.query(
             WorkShare,
             LiteraryWork.title.label("work_title"),
             LiteraryWork.content.label("work_content"),
             LiteraryWork.genre.label("work_genre"),
+            LiteraryWork.work_type.label("work_type"),
             LiteraryWork.is_published.label("work_is_published"),
             LiteraryWork.user_id.label("author_id"),
             User.nickname.label("author_nickname"),
@@ -217,6 +219,13 @@ def get_shared_feed(
         .join(User, User.id == LiteraryWork.user_id)
         .outerjoin(response_counts, response_counts.c.work_id == WorkShare.work_id)
         .filter(filters)
+    )
+
+    if work_type:
+        query = query.filter(LiteraryWork.work_type == work_type)
+
+    rows = (
+        query
         .order_by(WorkShare.created_at.desc(), WorkShare.id.desc())
         .limit(50)
         .all()
@@ -224,7 +233,7 @@ def get_shared_feed(
 
     seen_work_ids: set[int] = set()
     items: list[ShareFeedItem] = []
-    for share, work_title, work_content, work_genre, work_is_published, author_id, author_nickname, resp_count in rows:
+    for share, work_title, work_content, work_genre, work_type_value, work_is_published, author_id, author_nickname, resp_count in rows:
         if share.work_id in seen_work_ids:
             continue
         seen_work_ids.add(share.work_id)
@@ -238,6 +247,7 @@ def get_shared_feed(
             work_title=work_title,
             work_content=work_content,
             work_genre=work_genre,
+            work_type=work_type_value or "literary",
             work_is_published=work_is_published,
             author_id=author_id,
             author_nickname=author_nickname or "未知",

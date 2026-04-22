@@ -55,7 +55,7 @@ class WorkProvider extends ChangeNotifier {
 
   /// Fetch community feed from the enriched share feed endpoint.
   /// Converts ShareFeedItem responses into LiteraryWork objects.
-  Future<void> fetchCommunityFeed({bool silent = false}) async {
+  Future<void> fetchCommunityFeed({bool silent = false, String? workType}) async {
     if (!silent) {
       _isLoading = true;
     }
@@ -63,7 +63,10 @@ class WorkProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final data = await _apiClient.getList('${ApiConfig.sharesUrl}/feed');
+      final url = workType == null
+          ? '${ApiConfig.sharesUrl}/feed'
+          : '${ApiConfig.sharesUrl}/feed?work_type=$workType';
+      final data = await _apiClient.getList(url);
       _publicWorks = data
           .map((j) => ShareFeedItem.fromJson(j).toLiteraryWork())
           .toList();
@@ -80,6 +83,7 @@ class WorkProvider extends ChangeNotifier {
     required String title,
     required String genre,
     required String content,
+    String workType = 'literary',
     String visibility = 'private',
     String hashtags = '',
     List<int> inspirationIds = const [],
@@ -92,6 +96,7 @@ class WorkProvider extends ChangeNotifier {
           if (cycleId != null) 'cycle_id': cycleId,
           if (completedCycleId != null) 'completed_cycle_id': completedCycleId,
           'title': title,
+          'work_type': workType,
           'genre': genre,
           'content': content,
           'visibility': visibility,
@@ -115,6 +120,7 @@ class WorkProvider extends ChangeNotifier {
     String? title,
     String? content,
     String? genre,
+    String? workType,
     String? visibility,
     int? completedCycleId,
     bool setCompletedCycleId = false,
@@ -127,6 +133,7 @@ class WorkProvider extends ChangeNotifier {
       if (title != null) body['title'] = title;
       if (content != null) body['content'] = content;
       if (genre != null) body['genre'] = genre;
+      if (workType != null) body['work_type'] = workType;
       if (visibility != null) body['visibility'] = visibility;
       if (setCompletedCycleId) body['completed_cycle_id'] = completedCycleId;
       if (hashtags != null) body['hashtags'] = hashtags;

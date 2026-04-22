@@ -92,3 +92,47 @@ async def get_writing_help(help_type: str, context: str) -> str:
 
     prompt = prompts.get(help_type, f"請提供文學創作建議：\n\n{context}")
     return await call_ai(prompt, LITERARY_SYSTEM_PROMPT)
+
+
+async def transcribe_audio(audio_bytes: bytes, filename: str) -> str:
+    """Transcribe audio to text via OpenAI-compatible /audio/transcriptions."""
+    if not settings.AI_API_KEY:
+        raise AIServiceError("AI_API_KEY 尚未設定")
+
+    async with httpx.AsyncClient(timeout=120.0) as client:
+        try:
+            response = await client.post(
+                f"{settings.AI_API_URL}/audio/transcriptions",
+                headers={"Authorization": f"Bearer {settings.AI_API_KEY}"},
+                files={"file": (filename, audio_bytes, "application/octet-stream")},
+                data={"model": settings.AI_WHISPER_MODEL},
+            )
+            response.raise_for_status()
+            data = response.json()
+            text = data.get("text")
+            if not isinstance(text, str) or not text.strip():
+                raise AIServiceError("語音轉文字失敗：回應內容為空")
+            return text.strip()
+        except AIServiceError:
+            raise
+        except Exception as e:
+            raise AIServiceError(f"語音轉文字服務暫時無法使用：{str(e)}") from e
+
+
+async def summarize_inspiration_title(transcript: str) -> str:
+    """Generate a short Chinese title (6-12 chars) summarizing the inspiration."""
+    system_prompt = (
+        "你是靈感筆記助手，專門為使用者的口述內容擬定簡潔標題。"
+        "請只輸出標題本身，不要加上引號、標點符號或任何額外說明。"
+    )
+    prompt = (
+        "請為下列口述內容擬一個 6 到 12 個中文字的精簡標題，"
+        "聚焦在核心的事件或物品上，不要使用句號：\n\n"
+        f"{transcript}"
+    )
+    raw = await call_ai(prompt, system_prompt)
+    title = raw.strip().splitlines()[0] if raw else ""
+    title = title.strip().strip("「」\"'。，、 ")
+    if not title:
+        raise AIServiceError("AI 無法產生標題")
+    return title[:20]

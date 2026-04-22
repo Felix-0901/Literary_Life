@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../providers/inspiration_provider.dart';
 import '../widgets/quick_add_sheet.dart';
+import '../widgets/voice_inspiration_sheet.dart';
 
 class InspirationListPage extends StatefulWidget {
   const InspirationListPage({super.key});
@@ -179,7 +180,26 @@ class _InspirationListPageState extends State<InspirationListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppTheme.background,
-      appBar: AppBar(title: Text('靈感紀錄', style: GoogleFonts.notoSerifTc())),
+      appBar: AppBar(
+        title: Text('靈感紀錄', style: GoogleFonts.notoSerifTc()),
+        actions: [
+          IconButton(
+            tooltip: '語音記錄',
+            icon: const Icon(
+              Icons.mic_rounded,
+              size: 22,
+              color: AppTheme.textSecondary,
+            ),
+            onPressed: () => showModalBottomSheet(
+              context: context,
+              isScrollControlled: true,
+              backgroundColor: Colors.transparent,
+              builder: (_) => const VoiceInspirationSheet(),
+            ),
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         heroTag: 'inspiration_add_fab',
         onPressed: () => showModalBottomSheet(

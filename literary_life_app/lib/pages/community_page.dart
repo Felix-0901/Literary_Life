@@ -26,13 +26,14 @@ class _CommunityPageState extends State<CommunityPage> {
   final ScrollController _scrollController = ScrollController();
   int _lastReClickTrigger = 0;
   int _lastIndex = 0;
+  String _feedType = 'literary';
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        context.read<WorkProvider>().fetchCommunityFeed();
+        context.read<WorkProvider>().fetchCommunityFeed(workType: _feedType);
         _setupTabListener();
       }
     });
@@ -56,11 +57,14 @@ class _CommunityPageState extends State<CommunityPage> {
       if (shellController.reClickTrigger != _lastReClickTrigger) {
         _lastReClickTrigger = shellController.reClickTrigger;
         _scrollToTopAndRefresh();
-      } 
+      }
       // 2. If we just switched to this tab from another tab
       else if (_lastIndex != 3) {
         // Silent refresh if we already have works, otherwise show loading
-        workProvider.fetchCommunityFeed(silent: workProvider.publicWorks.isNotEmpty);
+        workProvider.fetchCommunityFeed(
+          silent: workProvider.publicWorks.isNotEmpty,
+          workType: _feedType,
+        );
       }
     }
     _lastIndex = shellController.currentIndex;
@@ -74,10 +78,19 @@ class _CommunityPageState extends State<CommunityPage> {
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       ).then((_) {
-        workProvider.fetchCommunityFeed(silent: true);
+        workProvider.fetchCommunityFeed(silent: true, workType: _feedType);
       });
     } else {
-      workProvider.fetchCommunityFeed(silent: true);
+      workProvider.fetchCommunityFeed(silent: true, workType: _feedType);
+    }
+  }
+
+  void _onFeedTypeChanged(String newType) {
+    if (newType == _feedType) return;
+    setState(() => _feedType = newType);
+    context.read<WorkProvider>().fetchCommunityFeed(workType: _feedType);
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
     }
   }
 
@@ -98,10 +111,92 @@ class _CommunityPageState extends State<CommunityPage> {
       (provider) => provider.user?.id,
     );
 
+    final feedLabel = _feedType == 'life' ? '生活貼文' : '文學社群';
+
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: Text('社群', style: GoogleFonts.notoSerifTc()),
+        title: PopupMenuButton<String>(
+          initialValue: _feedType,
+          tooltip: '切換社群類型',
+          onSelected: _onFeedTypeChanged,
+          offset: const Offset(0, 44),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          itemBuilder: (context) => [
+            PopupMenuItem<String>(
+              value: 'literary',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.menu_book_rounded,
+                    size: 18,
+                    color: _feedType == 'literary'
+                        ? AppTheme.accent
+                        : AppTheme.textHint,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '文學社群',
+                    style: GoogleFonts.notoSerifTc(
+                      fontWeight: _feedType == 'literary'
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: _feedType == 'literary'
+                          ? AppTheme.primary
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            PopupMenuItem<String>(
+              value: 'life',
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.local_cafe_outlined,
+                    size: 18,
+                    color: _feedType == 'life'
+                        ? AppTheme.accent
+                        : AppTheme.textHint,
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '生活貼文',
+                    style: GoogleFonts.notoSerifTc(
+                      fontWeight: _feedType == 'life'
+                          ? FontWeight.w600
+                          : FontWeight.w400,
+                      color: _feedType == 'life'
+                          ? AppTheme.primary
+                          : AppTheme.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                feedLabel,
+                style: GoogleFonts.notoSerifTc(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppTheme.primary,
+                ),
+              ),
+              const SizedBox(width: 4),
+              const Icon(
+                Icons.arrow_drop_down_rounded,
+                color: AppTheme.primary,
+              ),
+            ],
+          ),
+        ),
         actions: [
           Tooltip(
             message: '好友',
@@ -135,18 +230,21 @@ class _CommunityPageState extends State<CommunityPage> {
           }
           final publishedWorks = provider.publicWorks;
           if (publishedWorks.isEmpty) {
+            final isLife = _feedType == 'life';
             return Center(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(
-                    Icons.menu_book_rounded,
+                    isLife
+                        ? Icons.local_cafe_outlined
+                        : Icons.menu_book_rounded,
                     size: 56,
                     color: AppTheme.textHint.withValues(alpha: 0.4),
                   ),
                   const SizedBox(height: 16),
                   Text(
-                    '還沒有已發布的作品',
+                    isLife ? '還沒有人分享生活貼文' : '還沒有已發布的作品',
                     style: GoogleFonts.notoSansTc(
                       fontSize: 16,
                       color: AppTheme.textHint,
@@ -154,7 +252,9 @@ class _CommunityPageState extends State<CommunityPage> {
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    '完成創作後發布，與朋友分享你的文字',
+                    isLife
+                        ? '記下日常片段，與朋友分享你的生活'
+                        : '完成創作後發布，與朋友分享你的文字',
                     style: GoogleFonts.notoSansTc(
                       fontSize: 13,
                       color: AppTheme.textHint,
@@ -165,7 +265,7 @@ class _CommunityPageState extends State<CommunityPage> {
             );
           }
           return RefreshIndicator(
-            onRefresh: () => provider.fetchCommunityFeed(),
+            onRefresh: () => provider.fetchCommunityFeed(workType: _feedType),
             color: AppTheme.accent,
             child: ListView.builder(
               controller: _scrollController,
@@ -221,7 +321,7 @@ class _CommunityPageState extends State<CommunityPage> {
                     builder: (_) => ArticleDetailPage(work: work),
                   ),
                 ).then((_) {
-                  workProvider.fetchCommunityFeed();
+                  workProvider.fetchCommunityFeed(workType: _feedType);
                 });
               },
               child: Padding(
@@ -459,7 +559,9 @@ class _CommunityPageState extends State<CommunityPage> {
                             }
                             navigator.pop();
                             if (!mounted) return;
-                            context.read<WorkProvider>().fetchCommunityFeed();
+                            context.read<WorkProvider>().fetchCommunityFeed(
+                                  workType: _feedType,
+                                );
                             messenger.showSnackBar(
                               SnackBar(
                                 content: Text(

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from typing import Optional, List
 from sqlalchemy.orm import Session
@@ -6,7 +6,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.models.user import User
 from app.models.inspiration import InspirationLog
-from app.services.ai_service import AIServiceError, analyze_inspirations, get_writing_help
+from app.services.ai_service import (
+    AIServiceError,
+    analyze_inspirations,
+    get_writing_help,
+    summarize_inspiration_title,
+    transcribe_audio,
+)
 from app.utils.security import get_current_user
 
 router = APIRouter(prefix="/api/ai", tags=["AI 輔助"])
@@ -66,3 +72,21 @@ async def writing_assistance(
         return {"result": result}
     except AIServiceError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+@router.post("/transcribe-inspiration")
+async def transcribe_inspiration(
+    audio: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+):
+    raw = await audio.read()
+    if not raw:
+        raise HTTPException(status_code=400, detail="未收到音訊內容")
+    try:
+        transcript = await transcribe_audio(raw, audio.filename or "audio.m4a")
+        title = await summarize_inspiration_title(transcript)
+        return {"title": title, "transcript": transcript}
+    except AIServiceError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+    finally:
+        del raw

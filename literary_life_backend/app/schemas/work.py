@@ -7,6 +7,7 @@ class WorkCreate(BaseModel):
     cycle_id: Optional[int] = None
     completed_cycle_id: Optional[int] = None
     title: str
+    work_type: str = "literary"
     genre: str = "散文"
     content: str
     visibility: str = "private"
@@ -16,6 +17,7 @@ class WorkCreate(BaseModel):
 
 class WorkUpdate(BaseModel):
     title: Optional[str] = None
+    work_type: Optional[str] = None
     genre: Optional[str] = None
     content: Optional[str] = None
     visibility: Optional[str] = None
@@ -30,6 +32,7 @@ class WorkResponse(BaseModel):
     cycle_id: Optional[int]
     completed_cycle_id: Optional[int] = None
     title: str
+    work_type: str = "literary"
     genre: str
     content: str
     is_published: bool

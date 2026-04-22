@@ -11,6 +11,7 @@ class LiteraryWork(Base):
     cycle_id = Column(Integer, ForeignKey("writing_cycles.id"), nullable=True, index=True)
     completed_cycle_id = Column(Integer, ForeignKey("writing_cycles.id"), nullable=True, index=True)
     title = Column(String(200), nullable=False)
+    work_type = Column(String(20), nullable=False, server_default="literary")  # literary, life
     genre = Column(String(50), default="散文")  # 散文, 新詩, 短札記, 微小說, 書信體
     content = Column(Text, nullable=False)
     hashtags = Column(String(1000), default="", nullable=False)

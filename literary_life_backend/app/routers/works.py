@@ -137,6 +137,7 @@ def create_work(
         cycle_id=data.cycle_id,
         completed_cycle_id=data.completed_cycle_id,
         title=data.title,
+        work_type=data.work_type,
         genre=data.genre,
         content=data.content,
         visibility=data.visibility,
@@ -167,6 +168,7 @@ def create_work(
 def list_works(
     cycle_id: Optional[int] = Query(None),
     genre: Optional[str] = Query(None),
+    work_type: Optional[str] = Query(None),
     public: Optional[bool] = Query(False),
     skip: int = Query(0, ge=0),
     limit: int = Query(20, ge=1, le=100),
@@ -198,7 +200,10 @@ def list_works(
             
     if genre:
         query = query.filter(LiteraryWork.genre == genre)
-        
+
+    if work_type:
+        query = query.filter(LiteraryWork.work_type == work_type)
+
     rows = query.order_by(LiteraryWork.created_at.desc()).offset(skip).limit(limit).all()
     work_ids = [int(work.id) for work, *_ in rows]
     inspiration_ids_map = _get_inspiration_ids_map(db, work_ids)

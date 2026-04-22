@@ -25,6 +25,7 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
   final _contentController = TextEditingController();
   final _hashtagController = TextEditingController();
   String _selectedGenre = '散文';
+  String _workType = 'literary';
   bool _saving = false;
   bool _aiLoading = false;
   bool _deleting = false;
@@ -48,6 +49,7 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
       _titleController.text = _work!.title;
       _contentController.text = _work!.content;
       _selectedGenre = _work!.genre;
+      _workType = _work!.workType;
       _hashtags = _parseHashtags(_work!.hashtags);
       _completedCycleId = _work!.completedCycleId;
       _selectedInspirationIds = List<int>.from(_work!.inspirationIds);
@@ -281,69 +283,71 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
                           )
                           .toList(),
                     ),
-                  const SizedBox(height: 18),
-                  Text(
-                    '完成週期',
-                    style: GoogleFonts.notoSansTc(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppTheme.primary,
+                  if (_workType == 'literary') ...[
+                    const SizedBox(height: 18),
+                    Text(
+                      '完成週期',
+                      style: GoogleFonts.notoSansTc(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppTheme.primary,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Consumer<CycleProvider>(
-                    builder: (context, provider, _) {
-                      final completed = provider.allCycles
-                          .where((c) => c.status == 'completed')
-                          .toList();
-                      String labelFor(int id) {
-                        dynamic c;
-                        for (final x in provider.allCycles) {
-                          if (x.id == id) {
-                            c = x;
-                            break;
+                    const SizedBox(height: 8),
+                    Consumer<CycleProvider>(
+                      builder: (context, provider, _) {
+                        final completed = provider.allCycles
+                            .where((c) => c.status == 'completed')
+                            .toList();
+                        String labelFor(int id) {
+                          dynamic c;
+                          for (final x in provider.allCycles) {
+                            if (x.id == id) {
+                              c = x;
+                              break;
+                            }
                           }
+                          if (c == null) return '已選週期';
+                          final df = DateFormat('yyyy/MM/dd');
+                          return '${df.format(c.startDate)} - ${df.format(c.endDate)}';
                         }
-                        if (c == null) return '已選週期';
-                        final df = DateFormat('yyyy/MM/dd');
-                        return '${df.format(c.startDate)} - ${df.format(c.endDate)}';
-                      }
 
-                      return DropdownButtonFormField<int?>(
-                        initialValue: _completedCycleId,
-                        isExpanded: true,
-                        items: [
-                          DropdownMenuItem<int?>(
-                            value: null,
-                            child: Text('未指定', style: GoogleFonts.notoSansTc()),
+                        return DropdownButtonFormField<int?>(
+                          initialValue: _completedCycleId,
+                          isExpanded: true,
+                          items: [
+                            DropdownMenuItem<int?>(
+                              value: null,
+                              child: Text('未指定', style: GoogleFonts.notoSansTc()),
+                            ),
+                            ...completed.map((c) {
+                              final df = DateFormat('yyyy/MM/dd');
+                              final label = '${df.format(c.startDate)} - ${df.format(c.endDate)}';
+                              return DropdownMenuItem<int?>(
+                                value: c.id,
+                                child: Text(
+                                  label,
+                                  style: GoogleFonts.notoSansTc(fontSize: 13),
+                                ),
+                              );
+                            }),
+                          ],
+                          onChanged: (value) {
+                            setState(() {
+                              _completedCycleId = value;
+                              _selectedInspirationIds = [];
+                            });
+                            _fetchAvailableInspirations();
+                          },
+                          decoration: InputDecoration(
+                            hintText: _completedCycleId == null
+                                ? '選擇已完成週期'
+                                : labelFor(_completedCycleId!),
                           ),
-                          ...completed.map((c) {
-                            final df = DateFormat('yyyy/MM/dd');
-                            final label = '${df.format(c.startDate)} - ${df.format(c.endDate)}';
-                            return DropdownMenuItem<int?>(
-                              value: c.id,
-                              child: Text(
-                                label,
-                                style: GoogleFonts.notoSansTc(fontSize: 13),
-                              ),
-                            );
-                          }),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            _completedCycleId = value;
-                            _selectedInspirationIds = [];
-                          });
-                          _fetchAvailableInspirations();
-                        },
-                        decoration: InputDecoration(
-                          hintText: _completedCycleId == null
-                              ? '選擇已完成週期'
-                              : labelFor(_completedCycleId!),
-                        ),
-                      );
-                    },
-                  ),
+                        );
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -530,24 +534,30 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
     LiteraryWork? work;
     final hashtags = _joinHashtags(_hashtags);
 
+    final effectiveGenre = _workType == 'life' ? '生活' : _selectedGenre;
+    final effectiveCompletedCycleId =
+        _workType == 'life' ? null : _completedCycleId;
+
     if (isEditing) {
       work = await workProvider.updateWork(
         _work!.id,
         title: _titleController.text.trim(),
-        genre: _selectedGenre,
+        genre: effectiveGenre,
+        workType: _workType,
         content: _contentController.text,
         hashtags: hashtags,
-        completedCycleId: _completedCycleId,
+        completedCycleId: effectiveCompletedCycleId,
         setCompletedCycleId: true,
         inspirationIds: _selectedInspirationIds,
       );
     } else {
       final cycleId = cycleProvider.currentCycle?.id;
       work = await workProvider.createWork(
-        cycleId: cycleId,
-        completedCycleId: _completedCycleId,
+        cycleId: _workType == 'life' ? null : cycleId,
+        completedCycleId: effectiveCompletedCycleId,
         title: _titleController.text.trim(),
-        genre: _selectedGenre,
+        workType: _workType,
+        genre: effectiveGenre,
         content: _contentController.text,
         visibility: 'private',
         hashtags: hashtags,
@@ -571,6 +581,7 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
         if (isEditing) {
           _work = work;
           _selectedGenre = work!.genre;
+          _workType = work.workType;
           _hashtags = _parseHashtags(work.hashtags);
           _completedCycleId = work.completedCycleId;
           _selectedInspirationIds = List<int>.from(work.inspirationIds);
@@ -1000,67 +1011,69 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
                                 )
                                 .toList(),
                           ),
-                        const SizedBox(height: 22),
-                        Text(
-                          '完成週期',
-                          style: GoogleFonts.notoSansTc(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            color: AppTheme.primary,
+                        if (_workType == 'literary') ...[
+                          const SizedBox(height: 22),
+                          Text(
+                            '完成週期',
+                            style: GoogleFonts.notoSansTc(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: AppTheme.primary,
+                            ),
                           ),
-                        ),
-                        const SizedBox(height: 8),
-                        Consumer<CycleProvider>(
-                          builder: (context, provider, _) {
-                            final completed = provider.allCycles
-                                .where((c) => c.status == 'completed')
-                                .toList();
-                            String labelFor(int id) {
-                              dynamic c;
-                              for (final x in provider.allCycles) {
-                                if (x.id == id) {
-                                  c = x;
-                                  break;
+                          const SizedBox(height: 8),
+                          Consumer<CycleProvider>(
+                            builder: (context, provider, _) {
+                              final completed = provider.allCycles
+                                  .where((c) => c.status == 'completed')
+                                  .toList();
+                              String labelFor(int id) {
+                                dynamic c;
+                                for (final x in provider.allCycles) {
+                                  if (x.id == id) {
+                                    c = x;
+                                    break;
+                                  }
                                 }
+                                if (c == null) return '已選週期';
+                                final df = DateFormat('yyyy/MM/dd');
+                                return '${df.format(c.startDate)} - ${df.format(c.endDate)}';
                               }
-                              if (c == null) return '已選週期';
-                              final df = DateFormat('yyyy/MM/dd');
-                              return '${df.format(c.startDate)} - ${df.format(c.endDate)}';
-                            }
 
-                            return DropdownButtonFormField<int?>(
-                              initialValue: _completedCycleId,
-                              isExpanded: true,
-                              items: [
-                                DropdownMenuItem<int?>(
-                                  value: null,
-                                  child: Text('未指定', style: GoogleFonts.notoSansTc()),
+                              return DropdownButtonFormField<int?>(
+                                initialValue: _completedCycleId,
+                                isExpanded: true,
+                                items: [
+                                  DropdownMenuItem<int?>(
+                                    value: null,
+                                    child: Text('未指定', style: GoogleFonts.notoSansTc()),
+                                  ),
+                                  ...completed.map((c) {
+                                    final df = DateFormat('yyyy/MM/dd');
+                                    final label =
+                                        '${df.format(c.startDate)} - ${df.format(c.endDate)}';
+                                    return DropdownMenuItem<int?>(
+                                      value: c.id,
+                                      child: Text(label, style: GoogleFonts.notoSansTc(fontSize: 13)),
+                                    );
+                                  }),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    _completedCycleId = value;
+                                    _selectedInspirationIds = [];
+                                  });
+                                  _fetchAvailableInspirations();
+                                },
+                                decoration: InputDecoration(
+                                  hintText: _completedCycleId == null
+                                      ? '選擇已完成週期'
+                                      : labelFor(_completedCycleId!),
                                 ),
-                                ...completed.map((c) {
-                                  final df = DateFormat('yyyy/MM/dd');
-                                  final label =
-                                      '${df.format(c.startDate)} - ${df.format(c.endDate)}';
-                                  return DropdownMenuItem<int?>(
-                                    value: c.id,
-                                    child: Text(label, style: GoogleFonts.notoSansTc(fontSize: 13)),
-                                  );
-                                }),
-                              ],
-                              onChanged: (value) {
-                                setState(() {
-                                  _completedCycleId = value;
-                                  _selectedInspirationIds = [];
-                                });
-                                _fetchAvailableInspirations();
-                              },
-                              decoration: InputDecoration(
-                                hintText: _completedCycleId == null
-                                    ? '選擇已完成週期'
-                                    : labelFor(_completedCycleId!),
-                              ),
-                            );
-                          },
-                        ),
+                              );
+                            },
+                          ),
+                        ],
                         const SizedBox(height: 22),
                         Row(
                           children: [
@@ -1217,48 +1230,16 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Genre selector
-                SizedBox(
-                  height: 36,
-                  child: ListView.separated(
-                    scrollDirection: Axis.horizontal,
-                    itemCount: _genres.length,
-                    separatorBuilder: (_, __) => const SizedBox(width: 8),
-                    itemBuilder: (context, index) {
-                      final genre = _genres[index];
-                      final isSelected = genre == _selectedGenre;
-                      return GestureDetector(
-                        onTap: () => setState(() => _selectedGenre = genre),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppTheme.primary
-                                : AppTheme.surface,
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppTheme.primary
-                                  : AppTheme.divider,
-                            ),
-                          ),
-                          child: Text(
-                            genre,
-                            style: GoogleFonts.notoSansTc(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: isSelected
-                                  ? Colors.white
-                                  : AppTheme.textSecondary,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
+                // Work type toggle (literary / life)
+                Row(
+                  children: [
+                    _workTypeChip(label: '文學', value: 'literary'),
+                    const SizedBox(width: 8),
+                    _workTypeChip(label: '生活', value: 'life'),
+                    const SizedBox(width: 12),
+                    if (_workType == 'literary')
+                      Expanded(child: _genreDropdown()),
+                  ],
                 ),
                 const SizedBox(height: 20),
 
@@ -1385,6 +1366,91 @@ class _WritingEditorPageState extends State<WritingEditorPage> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _workTypeChip({required String label, required String value}) {
+    final isSelected = _workType == value;
+    return GestureDetector(
+      onTap: () {
+        if (_workType == value) return;
+        setState(() {
+          _workType = value;
+          if (value == 'life') {
+            _selectedGenre = '生活';
+            _completedCycleId = null;
+          } else if (!_genres.contains(_selectedGenre)) {
+            _selectedGenre = '散文';
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? AppTheme.primary : AppTheme.surface,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color: isSelected ? AppTheme.primary : AppTheme.divider,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.notoSansTc(
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            color: isSelected ? Colors.white : AppTheme.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _genreDropdown() {
+    final safeValue = _genres.contains(_selectedGenre) ? _selectedGenre : '散文';
+    return DropdownButtonFormField<String>(
+      initialValue: safeValue,
+      isExpanded: true,
+      isDense: true,
+      items: _genres
+          .map(
+            (g) => DropdownMenuItem<String>(
+              value: g,
+              child: Text(
+                g,
+                style: GoogleFonts.notoSansTc(
+                  fontSize: 13,
+                  color: AppTheme.primary,
+                ),
+              ),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _selectedGenre = value);
+      },
+      decoration: InputDecoration(
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(color: AppTheme.divider),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(color: AppTheme.divider),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(color: AppTheme.primary),
+        ),
+        prefixIcon: const Icon(
+          Icons.auto_stories_outlined,
+          size: 16,
+          color: AppTheme.textHint,
+        ),
+      ),
+      style: GoogleFonts.notoSansTc(fontSize: 13, color: AppTheme.primary),
     );
   }
 

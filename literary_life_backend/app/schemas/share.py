@@ -33,6 +33,7 @@ class ShareFeedItem(BaseModel):
     work_title: str
     work_content: str
     work_genre: str
+    work_type: str = "literary"
     work_is_published: bool
     author_id: int
     author_nickname: str
