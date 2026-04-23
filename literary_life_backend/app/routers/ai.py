@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from sqlalchemy.orm import Session
 
@@ -9,6 +9,7 @@ from app.models.inspiration import InspirationLog
 from app.services.ai_service import (
     AIServiceError,
     analyze_inspirations,
+    generate_draft_from_inspirations,
     get_writing_help,
     summarize_inspiration_title,
     transcribe_audio,
@@ -23,8 +24,25 @@ class AnalyzeRequest(BaseModel):
 
 
 class WritingHelpRequest(BaseModel):
-    help_type: str  # title, opening, polish, structure
+    help_type: str  # title, polish
     context: str
+    work_type: str = "literary"
+    genre: Optional[str] = None
+
+
+class InspirationContext(BaseModel):
+    event_time: Optional[str] = ""
+    location: Optional[str] = ""
+    object_or_event: Optional[str] = ""
+    detail_text: Optional[str] = ""
+    feeling: Optional[str] = ""
+    keywords: Optional[str] = ""
+
+
+class GenerateDraftRequest(BaseModel):
+    work_type: str = "literary"
+    genre: Optional[str] = None
+    inspirations: List[InspirationContext] = Field(default_factory=list)
 
 
 @router.post("/analyze")
@@ -68,8 +86,32 @@ async def writing_assistance(
     current_user: User = Depends(get_current_user),
 ):
     try:
-        result = await get_writing_help(data.help_type, data.context)
+        result = await get_writing_help(
+            data.help_type,
+            data.context,
+            work_type=data.work_type,
+            genre=data.genre,
+        )
         return {"result": result}
+    except AIServiceError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+@router.post("/generate-draft")
+async def generate_draft(
+    data: GenerateDraftRequest,
+    current_user: User = Depends(get_current_user),
+):
+    if not data.inspirations:
+        raise HTTPException(status_code=400, detail="請至少提供一筆靈感")
+
+    try:
+        result = await generate_draft_from_inspirations(
+            [item.model_dump() for item in data.inspirations],
+            work_type=data.work_type,
+            genre=data.genre,
+        )
+        return result
     except AIServiceError as error:
         raise HTTPException(status_code=502, detail=str(error)) from error
 

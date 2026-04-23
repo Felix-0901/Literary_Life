@@ -270,7 +270,11 @@ class SettingsPage extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Icon(Icons.auto_stories_rounded, size: 48, color: Colors.white),
+                    const Icon(
+                      Icons.auto_stories_rounded,
+                      size: 48,
+                      color: Colors.white,
+                    ),
                     const SizedBox(height: 12),
                     Text(
                       '拾字日常',
@@ -282,7 +286,7 @@ class SettingsPage extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'v2.0.0',
+                      'v2.1.0',
                       style: GoogleFonts.notoSansTc(
                         fontSize: 12,
                         color: Colors.white70,
@@ -316,8 +320,12 @@ class SettingsPage extends StatelessWidget {
                     const SizedBox(height: 20),
                     const Divider(),
                     const SizedBox(height: 16),
-                    _aboutInfoItem(Icons.code_rounded, '開發版本', '2.0.0'),
-                    _aboutInfoItem(Icons.copyright_rounded, '著作權', '© 2026 Literary Life'),
+                    _aboutInfoItem(Icons.code_rounded, '開發版本', '2.1.0'),
+                    _aboutInfoItem(
+                      Icons.copyright_rounded,
+                      '著作權',
+                      '© 2026 Literary Life',
+                    ),
                     _aboutInfoItem(Icons.favorite_rounded, '團隊', '拾字日常開發小組'),
                   ],
                 ),
@@ -343,10 +351,14 @@ class SettingsPage extends StatelessWidget {
     showLicensePage(
       context: context,
       applicationName: '拾字日常',
-      applicationVersion: '2.0.0',
+      applicationVersion: '2.1.0',
       applicationIcon: Padding(
         padding: const EdgeInsets.all(12),
-        child: Icon(Icons.auto_stories_rounded, size: 48, color: AppTheme.primary),
+        child: Icon(
+          Icons.auto_stories_rounded,
+          size: 48,
+          color: AppTheme.primary,
+        ),
       ),
       applicationLegalese: '© 2026 Literary Life\nLicensed under MIT License',
     );

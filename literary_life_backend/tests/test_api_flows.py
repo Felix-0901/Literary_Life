@@ -412,7 +412,13 @@ def test_notification_endpoints_mark_items_read(client, db_session):
 def test_ai_router_returns_502_when_upstream_fails(client, monkeypatch):
     user = _register(client, "ai@example.com", "AI User")
 
-    async def _raise_failure(help_type: str, context: str) -> str:
+    async def _raise_failure(
+        help_type: str,
+        context: str,
+        *,
+        work_type: str = "literary",
+        genre: str | None = None,
+    ) -> str:
         raise AIServiceError("ai offline")
 
     monkeypatch.setattr("app.routers.ai.get_writing_help", _raise_failure)
@@ -425,6 +431,58 @@ def test_ai_router_returns_502_when_upstream_fails(client, monkeypatch):
 
     assert response.status_code == 502
     assert response.json()["detail"] == "ai offline"
+
+
+def test_ai_generate_draft_requires_inspirations(client):
+    user = _register(client, "draft@example.com", "Draft User")
+
+    response = client.post(
+        "/api/ai/generate-draft",
+        headers=_auth_headers(user["access_token"]),
+        json={"work_type": "life", "genre": "生活", "inspirations": []},
+    )
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "請至少提供一筆靈感"
+
+
+def test_ai_generate_draft_returns_502_when_upstream_fails(client, monkeypatch):
+    user = _register(client, "draft_ai@example.com", "Draft AI User")
+
+    async def _raise_failure(
+        inspirations: list[dict],
+        *,
+        work_type: str = "literary",
+        genre: str | None = None,
+    ) -> dict:
+        raise AIServiceError("draft offline")
+
+    monkeypatch.setattr(
+        "app.routers.ai.generate_draft_from_inspirations",
+        _raise_failure,
+    )
+
+    response = client.post(
+        "/api/ai/generate-draft",
+        headers=_auth_headers(user["access_token"]),
+        json={
+            "work_type": "literary",
+            "genre": "散文",
+            "inspirations": [
+                {
+                    "event_time": "2026-04-23T10:00:00",
+                    "location": "台北",
+                    "object_or_event": "下雨",
+                    "detail_text": "傍晚在騎樓看雨",
+                    "feeling": "安靜",
+                    "keywords": "雨, 傍晚",
+                }
+            ],
+        },
+    )
+
+    assert response.status_code == 502
+    assert response.json()["detail"] == "draft offline"
 
 
 def test_healthz_reports_service_status(client):

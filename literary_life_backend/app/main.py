@@ -73,7 +73,7 @@ async def lifespan(_: FastAPI):
 app = FastAPI(
     title="拾字日常 Literary Life API",
     description="讓文學貼近生活的數位創作平台",
-    version="2.0.0",
+    version="2.1.0",
     lifespan=lifespan,
     docs_url=None if settings.is_production else "/docs",
     redoc_url=None if settings.is_production else "/redoc",
@@ -177,7 +177,7 @@ async def log_requests(request: Request, call_next):
 def root():
     return {
         "name": "拾字日常 Literary Life",
-        "version": "2.0.0",
+        "version": "2.1.0",
         "description": "把生活拾起，寫成文字。",
     }
 

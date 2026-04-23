@@ -64,8 +64,7 @@ class ApiService {
         MaintenanceController.instance.deactivate();
         return;
       }
-    } catch (_) {
-    }
+    } catch (_) {}
   }
 
   // ── Auth ──
@@ -317,12 +316,42 @@ class ApiService {
     );
   }
 
-  static Future<String> getWritingHelp(String helpType, String context) async {
+  static Future<String> getWritingHelp(
+    String helpType,
+    String context, {
+    required String workType,
+    String? genre,
+  }) async {
     final data = await post(
       '${ApiConfig.aiUrl}/help',
-      body: {'help_type': helpType, 'context': context},
+      body: {
+        'help_type': helpType,
+        'context': context,
+        'work_type': workType,
+        'genre': genre,
+      },
     );
     return data['result'] ?? '';
+  }
+
+  static Future<({String title, String content})>
+  generateDraftFromInspirations({
+    required String workType,
+    String? genre,
+    required List<Map<String, dynamic>> inspirations,
+  }) async {
+    final data = await post(
+      '${ApiConfig.aiUrl}/generate-draft',
+      body: {
+        'work_type': workType,
+        'genre': genre,
+        'inspirations': inspirations,
+      },
+    );
+    return (
+      title: (data['title'] ?? '') as String,
+      content: (data['content'] ?? '') as String,
+    );
   }
 
   static Future<({String title, String transcript})> transcribeInspiration(
@@ -348,7 +377,8 @@ class ApiService {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw ApiException(response.statusCode, _parseError(response));
     }
-    final data = jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
+    final data =
+        jsonDecode(utf8.decode(response.bodyBytes)) as Map<String, dynamic>;
     return (
       title: (data['title'] ?? '') as String,
       transcript: (data['transcript'] ?? '') as String,
@@ -422,7 +452,10 @@ class ApiService {
       } catch (_) {
         MaintenanceController.instance.activate();
       }
-      throw ApiException(response.statusCode, message.trim().isEmpty ? '服務維護中' : message);
+      throw ApiException(
+        response.statusCode,
+        message.trim().isEmpty ? '服務維護中' : message,
+      );
     }
     if (response.statusCode == 401) {
       clearToken();

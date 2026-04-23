@@ -1,7 +1,7 @@
 name: literary_life_app
 description: "拾字日常 — 讓文學貼近生活的數位創作平台"
 publish_to: 'none'
-version: 2.0.0+1
+version: 2.1.0+1
 
 environment:
   sdk: ^3.9.2
